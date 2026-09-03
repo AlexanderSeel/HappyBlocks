@@ -15,7 +15,7 @@ const MODES: LevelMode[] = [
 
 function numberValue(input: HTMLInputElement | null, fallback: number): number {
   const value = input?.valueAsNumber;
-  return Number.isFinite(value) ? value! : fallback;
+  return value !== undefined && Number.isFinite(value) ? value : fallback;
 }
 
 export function installEditorRulesPanel(): void {
@@ -152,11 +152,26 @@ export function installEditorRulesPanel(): void {
       const level = currentLevel();
       if (!level) return;
       level.mode = mode.value as LevelMode;
-      level.inventory["projectile.ball"] = Math.max(0, Math.round(numberValue(standard, 0)));
-      level.inventory["projectile.heavy"] = Math.max(0, Math.round(numberValue(heavy, 0)));
-      level.inventory["projectile.pulse"] = Math.max(0, Math.round(numberValue(pulse, 0)));
+      level.inventory["projectile.ball"] = Math.max(
+        0,
+        Math.round(numberValue(standard, 0)),
+      );
+      level.inventory["projectile.heavy"] = Math.max(
+        0,
+        Math.round(numberValue(heavy, 0)),
+      );
+      level.inventory["projectile.pulse"] = Math.max(
+        0,
+        Math.round(numberValue(pulse, 0)),
+      );
+
       const pullCount = Math.max(0, Math.round(numberValue(removes, 0)));
-      level.actions = pullCount > 0 ? { ...(level.actions ?? {}), removes: pullCount } : level.actions;
+      if (pullCount > 0) {
+        level.actions = { ...(level.actions ?? {}), removes: pullCount };
+      } else if (level.actions) {
+        delete level.actions.removes;
+        if (Object.keys(level.actions).length === 0) delete level.actions;
+      }
 
       const entity = selectedEntity(level);
       if (entity) {
@@ -168,7 +183,11 @@ export function installEditorRulesPanel(): void {
         if (Number.isFinite(massValue) && massValue > 0) entity.massScale = massValue;
         else delete entity.massScale;
         const breakValue = Number(breakThreshold.value);
-        if (breakThreshold.value.trim() && Number.isFinite(breakValue) && breakValue >= 0) {
+        if (
+          breakThreshold.value.trim() &&
+          Number.isFinite(breakValue) &&
+          breakValue >= 0
+        ) {
           entity.breakThreshold = breakValue;
         } else {
           delete entity.breakThreshold;
@@ -184,17 +203,31 @@ export function installEditorRulesPanel(): void {
       if (!level) return;
       const type = objectiveType.value;
       const targetTag = objectiveTag.value.trim() || "target";
-      const required = Math.max(1, Math.round(numberValue(objectiveRequired, 1)));
+      const required = Math.max(
+        1,
+        Math.round(numberValue(objectiveRequired, 1)),
+      );
       const value = numberValue(objectiveValue, 0.52);
       let objective: LevelObjective;
       if (type === "moveBelowY") {
         objective = { type, targetTag, y: value, required };
       } else if (type === "protect") {
-        objective = { type, targetTag, minY: value, minUpDot: 0.35, required };
+        objective = {
+          type,
+          targetTag,
+          minY: value,
+          minUpDot: 0.35,
+          required,
+        };
       } else if (type === "removed") {
         objective = { type, targetTag, required };
       } else {
-        objective = { type: "knockDown", targetTag, maxUpDot: value, required };
+        objective = {
+          type: "knockDown",
+          targetTag,
+          maxUpDot: value,
+          required,
+        };
       }
       level.objectives.push(objective);
       commit(level);
