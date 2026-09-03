@@ -21,8 +21,6 @@ const levelUrls = [
 ];
 const game = new HappyBlocksGame(canvas);
 game.setLevelSequence(levelUrls);
-installEditorStructurePalette();
-installEditorRulesPanel();
 
 const levelButtons = [
   ...document.querySelectorAll<HTMLButtonElement>("[data-level-url]"),
@@ -36,4 +34,6 @@ for (const button of levelButtons) {
 }
 
 await game.start(levelUrls[0]);
+installEditorStructurePalette();
+installEditorRulesPanel();
 window.addEventListener("beforeunload", () => game.dispose(), { once: true });
