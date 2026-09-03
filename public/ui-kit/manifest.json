@@ -1,0 +1,125 @@
+{
+  "name": "HappyBlocks UI / Item Kit",
+  "version": "0.2.0",
+  "principles": [
+    "Every item is an independent HTML/CSS component.",
+    "No sprite sheet or cutout workflow is required.",
+    "No SVG production dependency.",
+    "Components are usable individually in game, editor, menus or external prototypes."
+  ],
+  "stylesheet": "./components.css",
+  "components": [
+    {
+      "id": "button-primary",
+      "category": "button",
+      "label": "Primary Action",
+      "classes": ["hb-button", "primary"],
+      "example": "<button class=\"hb-button primary\">PRIMARY ACTION</button>"
+    },
+    {
+      "id": "button-editor",
+      "category": "button",
+      "label": "Editor Tool",
+      "classes": ["hb-button", "violet"],
+      "example": "<button class=\"hb-button violet\">EDITOR TOOL</button>"
+    },
+    {
+      "id": "button-danger",
+      "category": "button",
+      "label": "Danger Action",
+      "classes": ["hb-button", "danger"],
+      "example": "<button class=\"hb-button danger\">DELETE</button>"
+    },
+    {
+      "id": "objective-panel",
+      "category": "panel",
+      "label": "Objective Panel",
+      "classes": ["hb-panel"],
+      "example": "<div class=\"hb-panel\"><small>OBJECTIVE</small><strong>Collapse the core tower</strong><p>Keep the protected block above the line.</p></div>"
+    },
+    {
+      "id": "level-card",
+      "category": "card",
+      "label": "Level Card",
+      "classes": ["hb-card"],
+      "example": "<div class=\"hb-card\"><div class=\"thumb\"></div><div><span class=\"label\">LEVEL 06</span><strong>Sky Citadel</strong><div><em>★ ★ ☆</em></div></div></div>"
+    },
+    {
+      "id": "projectile-standard",
+      "category": "chip",
+      "label": "Standard Projectile",
+      "classes": ["hb-chip"],
+      "example": "<span class=\"hb-chip\">STANDARD ×3</span>"
+    },
+    {
+      "id": "projectile-heavy",
+      "category": "chip",
+      "label": "Heavy Projectile",
+      "classes": ["hb-chip", "heavy"],
+      "example": "<span class=\"hb-chip heavy\">HEAVY ×2</span>"
+    },
+    {
+      "id": "projectile-pulse",
+      "category": "chip",
+      "label": "Pulse Projectile",
+      "classes": ["hb-chip", "pulse"],
+      "example": "<span class=\"hb-chip pulse\">PULSE ×1</span>"
+    },
+    {
+      "id": "stat",
+      "category": "hud",
+      "label": "Statistic",
+      "classes": ["hb-stat"],
+      "example": "<div class=\"hb-stat\"><small>SCORE</small><strong>12,840</strong></div>"
+    },
+    {
+      "id": "aim-reticle",
+      "category": "hud",
+      "label": "Aim Reticle",
+      "classes": ["hb-reticle"],
+      "example": "<div class=\"hb-reticle\"></div>"
+    },
+    {
+      "id": "power-meter",
+      "category": "hud",
+      "label": "Power Meter",
+      "classes": ["hb-power"],
+      "example": "<div class=\"hb-power\"><i style=\"width:72%\"></i></div>"
+    },
+    {
+      "id": "tool-move",
+      "category": "editor-tool",
+      "label": "Move Tool",
+      "classes": ["hb-icon"],
+      "example": "<button class=\"hb-icon\" aria-label=\"Move\">↔</button>"
+    },
+    {
+      "id": "tool-rotate",
+      "category": "editor-tool",
+      "label": "Rotate Tool",
+      "classes": ["hb-icon", "violet"],
+      "example": "<button class=\"hb-icon violet\" aria-label=\"Rotate\">⟳</button>"
+    },
+    {
+      "id": "tool-scale",
+      "category": "editor-tool",
+      "label": "Scale Tool",
+      "classes": ["hb-icon", "amber"],
+      "example": "<button class=\"hb-icon amber\" aria-label=\"Scale\">⤢</button>"
+    },
+    {
+      "id": "tool-undo",
+      "category": "editor-tool",
+      "label": "Undo",
+      "classes": ["hb-icon"],
+      "example": "<button class=\"hb-icon\" aria-label=\"Undo\">↶</button>"
+    },
+    {
+      "id": "tool-redo",
+      "category": "editor-tool",
+      "label": "Redo",
+      "classes": ["hb-icon"],
+      "example": "<button class=\"hb-icon\" aria-label=\"Redo\">↷</button>"
+    }
+  ]
+}
