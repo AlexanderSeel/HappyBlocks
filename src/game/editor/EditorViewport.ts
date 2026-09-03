@@ -15,6 +15,10 @@ import {
 } from "@babylonjs/core";
 import { ASSETS } from "../AssetDefinitions";
 import type { HappyBlocksLevel, LevelEntity } from "../levels/types";
+import {
+  createMaterialLibrary,
+  type MaterialLibrary,
+} from "../rendering/materials";
 
 export type EditorGizmoMode = "position" | "rotation" | "scale";
 
@@ -29,25 +33,13 @@ export interface EditorViewportCallbacks {
   onTransform: (entityId: string, transform: EditorTransform) => void;
 }
 
-const MATERIAL_COLORS: Record<string, string> = {
-  wood: "#b77a42",
-  stone: "#9ba8ad",
-  metal: "#73858d",
-  rubber: "#18252b",
-  ceramic: "#edf4f4",
-  ceramic_cyan: "#28c9e7",
-  ceramic_amber: "#f2ae43",
-  ceramic_violet: "#8d6ae8",
-  energy: "#ffe58b",
-};
-
 export class EditorViewport {
   private readonly engine: Engine;
   private readonly scene: Scene;
   private readonly camera: ArcRotateCamera;
   private readonly gizmos: GizmoManager;
   private readonly meshes = new Map<string, Mesh>();
-  private readonly materials = new Map<string, PBRMaterial>();
+  private readonly surfaceMaterials: MaterialLibrary;
   private readonly resizeObserver: ResizeObserver;
   private selectedId: string | null = null;
   private mode: EditorGizmoMode = "position";
@@ -86,6 +78,8 @@ export class EditorViewport {
     );
     light.intensity = 1.05;
     light.groundColor = new Color3(0.08, 0.11, 0.12);
+
+    this.surfaceMaterials = createMaterialLibrary(this.scene);
 
     const grid = MeshBuilder.CreateGround(
       "editor-grid",
@@ -192,8 +186,7 @@ export class EditorViewport {
     this.disposed = true;
     this.resizeObserver.disconnect();
     this.gizmos.dispose();
-    this.materials.forEach((material) => material.dispose());
-    this.materials.clear();
+    Object.values(this.surfaceMaterials).forEach((material) => material.dispose());
     this.scene.dispose();
     this.engine.dispose();
   }
@@ -236,21 +229,7 @@ export class EditorViewport {
   }
 
   private materialFor(materialId: string): PBRMaterial {
-    const existing = this.materials.get(materialId);
-    if (existing) {
-      return existing;
-    }
-    const material = new PBRMaterial(`editor-material:${materialId}`, this.scene);
-    material.albedoColor = Color3.FromHexString(
-      MATERIAL_COLORS[materialId] ?? "#8ba6ae",
-    );
-    material.metallic = materialId === "metal" ? 0.82 : 0.04;
-    material.roughness = materialId === "rubber" ? 0.72 : 0.38;
-    if (materialId === "energy") {
-      material.emissiveColor = new Color3(1, 0.55, 0.08);
-    }
-    this.materials.set(materialId, material);
-    return material;
+    return this.surfaceMaterials[materialId] ?? this.surfaceMaterials.wood;
   }
 
   private applyGizmoMode(): void {
