@@ -1,0 +1,98 @@
+name: Generate projectile and sky art
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "tools/generate_projectile_textures.py"
+      - "tools/generate_skyboxes.py"
+      - ".github/workflows/generate-game-art.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: happyblocks-game-art-generation
+  cancel-in-progress: true
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install image tooling
+        run: python -m pip install --disable-pip-version-check "Pillow==11.3.0"
+
+      - name: Generate projectile textures
+        run: python tools/generate_projectile_textures.py
+
+      - name: Generate sky panoramas
+        run: python tools/generate_skyboxes.py
+
+      - name: Validate generated art
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from PIL import Image
+
+          projectile_root = Path("public/assets/textures/projectiles")
+          projectile_manifest = json.loads((projectile_root / "manifest.json").read_text(encoding="utf-8"))
+          expected_projectile = {
+              "hd": {"baseColor": (2048, 2048), "normal": (1024, 1024), "orm": (1024, 1024)},
+              "mobile": {"baseColor": (1024, 1024), "normal": (512, 512), "orm": (512, 512)},
+          }
+          count = 0
+          for profile_name, profile in projectile_manifest["profiles"].items():
+              for surface, maps in profile["materials"].items():
+                  for channel, filename in maps.items():
+                      path = projectile_root / filename
+                      if not path.is_file():
+                          raise SystemExit(f"missing projectile map {profile_name}.{surface}.{channel}: {path}")
+                      with Image.open(path) as image:
+                          if image.size != expected_projectile[profile_name][channel]:
+                              raise SystemExit(f"wrong projectile size {filename}: {image.size}")
+                          if image.format != "WEBP":
+                              raise SystemExit(f"wrong projectile format {filename}: {image.format}")
+                      count += 1
+          if count != 24:
+              raise SystemExit(f"expected 24 projectile WebP maps, got {count}")
+
+          sky_root = Path("public/assets/skyboxes")
+          sky_manifest = json.loads((sky_root / "manifest.json").read_text(encoding="utf-8"))
+          skies = sky_manifest.get("skies", [])
+          if len(skies) != 6:
+              raise SystemExit(f"expected 6 skies, got {len(skies)}")
+          for sky in skies:
+              path = sky_root / sky["file"]
+              if not path.is_file():
+                  raise SystemExit(f"missing sky {path}")
+              with Image.open(path) as image:
+                  if image.size != (2048, 1024):
+                      raise SystemExit(f"wrong sky size {path.name}: {image.size}")
+                  if image.format != "WEBP":
+                      raise SystemExit(f"wrong sky format {path.name}: {image.format}")
+          print("validated 24 projectile PBR maps and 6 equirectangular sky panoramas")
+          PY
+
+      - name: Commit generated art
+        run: |
+          if [ -z "$(git status --porcelain -- public/assets/textures/projectiles public/assets/skyboxes)" ]; then
+            echo "Generated art already up to date."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/assets/textures/projectiles public/assets/skyboxes
+          git commit -m "assets: regenerate projectile PBR skins and sky panoramas"
+          git push origin HEAD:main
