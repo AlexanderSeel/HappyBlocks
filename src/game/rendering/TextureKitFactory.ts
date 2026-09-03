@@ -41,7 +41,7 @@ function createTexture(
   texture.wrapU = Texture.WRAP_ADDRESSMODE;
   texture.wrapV = Texture.WRAP_ADDRESSMODE;
   texture.anisotropicFilteringLevel = 8;
-  const context = texture.getContext();
+  const context = texture.getContext() as unknown as CanvasRenderingContext2D;
   draw(context, size);
   texture.update(false);
   return texture;
