@@ -3,6 +3,7 @@ import "./editor.css";
 import "./ui-kit.css";
 import "@babylonjs/loaders/glTF";
 import { HappyBlocksGame } from "./game/HappyBlocksGame";
+import { installEditorStructurePalette } from "./game/editor/EditorStructurePalette";
 
 const canvas = document.querySelector<HTMLCanvasElement>("#game-canvas");
 if (!canvas) throw new Error("#game-canvas was not found");
@@ -17,8 +18,11 @@ const levelUrls = [
 ];
 const game = new HappyBlocksGame(canvas);
 game.setLevelSequence(levelUrls);
+installEditorStructurePalette();
 
-const levelButtons = [...document.querySelectorAll<HTMLButtonElement>("[data-level-url]")];
+const levelButtons = [
+  ...document.querySelectorAll<HTMLButtonElement>("[data-level-url]"),
+];
 for (const button of levelButtons) {
   button.addEventListener("click", () => {
     const levelUrl = button.dataset.levelUrl;
