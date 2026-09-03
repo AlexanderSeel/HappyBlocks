@@ -19,6 +19,7 @@ import { ArcRotateCameraPointersInput } from "@babylonjs/core/Cameras/Inputs/arc
 import { AudioFx } from "./AudioFx";
 import { ASSETS } from "./AssetDefinitions";
 import { BlockFactory, type RuntimeEntity } from "./BlockFactory";
+import { spawnPulseWave } from "./effects/PulseWave";
 import { ThrowController } from "./input/ThrowController";
 import { loadLevel as fetchLevel } from "./levels/loadLevel";
 import type { HappyBlocksLevel, LevelEntity, LevelObjective } from "./levels/types";
@@ -39,6 +40,7 @@ interface PendingBreak {
 const PROJECTILE_LABELS: Record<string, string> = {
   "projectile.ball": "Standard",
   "projectile.heavy": "Heavy",
+  "projectile.pulse": "Pulse",
 };
 
 export class HappyBlocksGame {
@@ -51,12 +53,17 @@ export class HappyBlocksGame {
   private visuals: VisualAssetLibrary | null = null;
   private factory: BlockFactory | null = null;
   private level: HappyBlocksLevel | null = null;
+  private currentLevelUrl = "";
+  private levelSequence: string[] = [];
   private entities: RuntimeEntity[] = [];
   private platform: { mesh: Mesh; aggregate: PhysicsAggregate } | null = null;
   private throwController: ThrowController | null = null;
   private inventory: Record<string, number> = {};
   private selectedProjectile = "projectile.ball";
   private shotsUsed = 0;
+  private impactBonus = 0;
+  private comboCount = 0;
+  private lastScoringImpactAt = 0;
   private startedAt = 0;
   private completed = false;
   private renderLoopStarted = false;
@@ -74,6 +81,12 @@ export class HappyBlocksGame {
     window.addEventListener("resize", this.resize);
     window.addEventListener("keydown", this.keydown);
     this.hud.resetButton.addEventListener("click", () => void this.reset());
+    this.hud.resultRetryButton.addEventListener("click", () => void this.reset());
+    this.hud.resultNextButton.addEventListener("click", () => void this.loadNextLevel());
+  }
+
+  setLevelSequence(urls: string[]): void {
+    this.levelSequence = [...urls];
   }
 
   async start(levelUrl: string): Promise<void> {
@@ -96,8 +109,19 @@ export class HappyBlocksGame {
 
   async loadLevel(levelUrl: string): Promise<void> {
     const level = await fetchLevel(levelUrl);
+    this.currentLevelUrl = levelUrl;
     this.level = level;
     await this.buildScene(level);
+  }
+
+  private async loadNextLevel(): Promise<void> {
+    const index = this.levelSequence.indexOf(this.currentLevelUrl);
+    const nextUrl = index >= 0 ? this.levelSequence[index + 1] : undefined;
+    if (!nextUrl) {
+      return;
+    }
+    await this.loadLevel(nextUrl);
+    this.syncLevelButtons();
   }
 
   private async buildScene(level: HappyBlocksLevel): Promise<void> {
@@ -106,6 +130,7 @@ export class HappyBlocksGame {
     this.visuals?.dispose();
     this.visuals = null;
     this.scene?.dispose();
+    this.hud.hideResult();
 
     const scene = new Scene(this.engine);
     this.scene = scene;
@@ -169,6 +194,9 @@ export class HappyBlocksGame {
     this.inventory = { ...level.inventory };
     this.selectedProjectile = this.projectileIds()[0] ?? "projectile.ball";
     this.shotsUsed = 0;
+    this.impactBonus = 0;
+    this.comboCount = 0;
+    this.lastScoringImpactAt = 0;
     this.completed = false;
     this.startedAt = performance.now();
     this.settling = false;
@@ -186,15 +214,18 @@ export class HappyBlocksGame {
         getProjectileAsset: () => this.selectedProjectile,
         onAim: (power) => this.hud.setPower(power),
         onThrow: (assetId) => this.onThrow(assetId),
-        onImpact: (_assetId, impulse) => this.onProjectileImpact(impulse),
+        onImpact: (assetId, impulse, point) =>
+          this.onProjectileImpact(assetId, impulse, point),
       },
       this.visuals,
     );
 
     this.hud.setLevel(level.name);
+    this.hud.setCombo(0);
     this.refreshProjectileHud();
     this.hud.setScore(this.score());
     this.hud.setStatus("Drag backward, aim, release.");
+    this.syncLevelButtons();
   }
 
   private createArena(shadows: ShadowGenerator): void {
@@ -375,6 +406,9 @@ export class HappyBlocksGame {
   private onThrow(assetId: string): void {
     this.inventory[assetId] = Math.max(0, (this.inventory[assetId] ?? 0) - 1);
     this.shotsUsed += 1;
+    this.comboCount = 0;
+    this.lastScoringImpactAt = 0;
+    this.hud.setCombo(0);
     this.settling = true;
     this.settledSince = 0;
     this.lastThrowAt = performance.now();
@@ -393,15 +427,62 @@ export class HappyBlocksGame {
     this.audio.play("throw");
   }
 
-  private onProjectileImpact(impulse: number): void {
+  private onProjectileImpact(assetId: string, impulse: number, point: Vector3): void {
+    if (assetId === "projectile.pulse") {
+      this.triggerPulse(point);
+    }
+
     if (impulse < 1.2) {
       return;
     }
+
+    const now = performance.now();
+    const comboWindow = this.level?.scoring?.impactComboWindowMs ?? 800;
+    this.comboCount =
+      now - this.lastScoringImpactAt <= comboWindow ? this.comboCount + 1 : 1;
+    this.lastScoringImpactAt = now;
+    const comboMultiplier = this.level?.scoring?.comboMultiplier ?? 1.15;
+    const multiplier = Math.pow(comboMultiplier, Math.min(this.comboCount - 1, 4));
+    this.impactBonus += Math.round(Math.min(impulse, 18) * 8 * multiplier);
+    this.hud.setCombo(this.comboCount);
 
     if (impulse >= 6) {
       this.audio.play("impactHeavy", Math.min(1.5, 0.55 + impulse / 20));
     } else {
       this.audio.play("impactLight", Math.min(1.25, 0.5 + impulse / 10));
+    }
+  }
+
+  private triggerPulse(point: Vector3): void {
+    if (!this.scene) {
+      return;
+    }
+
+    spawnPulseWave(this.scene, point);
+    this.audio.play("pulse");
+    const radius = 3.1;
+    const maxImpulse = 6.5;
+
+    for (const entity of this.entities) {
+      if (!entity.dynamic || entity.broken || entity.source.asset === "spinner.cross") {
+        continue;
+      }
+
+      const offset = entity.mesh.position.subtract(point);
+      const distance = offset.length();
+      if (distance > radius) {
+        continue;
+      }
+
+      const direction =
+        distance < 0.08
+          ? Vector3.Up()
+          : offset.scale(1 / distance).add(new Vector3(0, 0.22, 0)).normalize();
+      const strength = maxImpulse * Math.pow(1 - distance / radius, 1.35);
+      entity.aggregate.body.applyImpulse(
+        direction.scale(strength),
+        entity.mesh.position,
+      );
     }
   }
 
@@ -414,12 +495,7 @@ export class HappyBlocksGame {
     this.hud.setScore(this.score());
 
     if (this.level.objectives.every((objective) => this.objective(objective))) {
-      this.completed = true;
-      this.hud.setStatus(
-        `Structure solved · ${this.score().toLocaleString()} points`,
-        "win",
-      );
-      this.audio.play("goal");
+      this.completeLevel();
       return;
     }
 
@@ -430,6 +506,32 @@ export class HappyBlocksGame {
     if (!this.settling && this.totalShotsRemaining() <= 0) {
       this.hud.setStatus("No shots left — reset and try another angle.");
     }
+  }
+
+  private completeLevel(): void {
+    if (this.completed) {
+      return;
+    }
+
+    this.completed = true;
+    const score = this.score();
+    const stars = this.starsForScore(score);
+    const currentIndex = this.levelSequence.indexOf(this.currentLevelUrl);
+    const hasNext = currentIndex >= 0 && currentIndex < this.levelSequence.length - 1;
+    this.hud.setStatus(
+      `Structure solved · ${score.toLocaleString()} points`,
+      "win",
+    );
+    this.hud.showResult(score, stars, hasNext);
+    this.audio.play("goal");
+  }
+
+  private starsForScore(score: number): number {
+    const thresholds = this.level?.scoring?.starThresholds ?? [350, 650, 850];
+    return thresholds.reduce(
+      (stars, threshold) => stars + (score >= threshold ? 1 : 0),
+      0,
+    );
   }
 
   private updateSettledState(): boolean {
@@ -544,7 +646,18 @@ export class HappyBlocksGame {
     const timePenalty =
       (this.level.scoring?.timePenaltyPerSecond ?? 0) * elapsed;
 
-    return Math.max(0, Math.round(base - shotPenalty - timePenalty));
+    return Math.max(
+      0,
+      Math.round(base + this.impactBonus - shotPenalty - timePenalty),
+    );
+  }
+
+  private syncLevelButtons(): void {
+    for (const button of document.querySelectorAll<HTMLButtonElement>(
+      "[data-level-url]",
+    )) {
+      button.dataset.active = String(button.dataset.levelUrl === this.currentLevelUrl);
+    }
   }
 
   async reset(): Promise<void> {

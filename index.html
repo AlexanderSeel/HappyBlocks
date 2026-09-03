@@ -14,6 +14,7 @@
         <div class="hud__stats">
           <div><small>LEVEL</small><strong id="level-name">Loading…</strong></div>
           <div><small>SHOTS</small><strong id="shots">0</strong></div>
+          <div><small>COMBO</small><strong id="combo">—</strong></div>
           <div><small>SCORE</small><strong id="score">0</strong></div>
         </div>
         <div class="hud__level-select" aria-label="Prototype levels">
@@ -24,7 +25,18 @@
         <div id="projectile-selector" class="projectiles" aria-label="Projectile selection"></div>
         <div id="power-wrap" class="power" aria-hidden="true"><div id="power-bar" class="power__bar"></div></div>
         <div class="hud__actions"><button id="reset-button" type="button">↻ Reset</button></div>
-        <div class="hud__help">Drag left mouse / touch to aim & throw · Right mouse drag to orbit · Wheel to zoom · 1/2 projectile · R reset</div>
+        <div class="hud__help">Drag left mouse / touch to aim & throw · Right mouse drag to orbit · Wheel to zoom · 1/2/3 projectile · R reset</div>
+        <section id="result-panel" class="result" hidden aria-live="polite">
+          <div class="result__card">
+            <small>LEVEL COMPLETE</small>
+            <div id="result-stars" class="result__stars">☆ ☆ ☆</div>
+            <strong id="result-score">0 POINTS</strong>
+            <div class="result__actions">
+              <button id="result-retry" type="button">Retry</button>
+              <button id="result-next" type="button">Next level →</button>
+            </div>
+          </div>
+        </section>
       </div>
     </div>
     <script type="module" src="/src/main.ts"></script>

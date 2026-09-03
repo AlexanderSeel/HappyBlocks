@@ -12,12 +12,13 @@ Build a browser-first 3D physics puzzle game centered on tactile block structure
 - 1 game unit = 1 meter, +Y up.
 
 ## Physics rules
-- Prefer BOX/SPHERE/CYLINDER/CONVEX/compound physics proxies; do not default visual meshes to triangle-mesh colliders.
+- Prefer BOX/SPHERE/CYLINDER/CAPSULE/CONVEX/compound physics proxies; do not default visual meshes to triangle-mesh colliders.
 - Visual glTF geometry is independent from primitive Havok collision proxies.
 - Standard projectile radius ~0.38 m, mass ~1.8 gameplay kg.
 - Heavy projectile radius ~0.52 m, mass ~4.6 gameplay kg.
+- Pulse projectile uses a capsule proxy and a single collision-triggered radial impulse.
 - Gravity defaults to 9.81 m/s².
-- Collision solver impulse drives impact audio and authored break thresholds.
+- Collision solver impulse drives impact audio, score combos and authored break thresholds.
 - Settle detection uses linear/angular velocity thresholds and a quiet-time window.
 - Use authored segmented breakables instead of runtime mesh fracture for the first production version.
 
@@ -39,30 +40,30 @@ Build a browser-first 3D physics puzzle game centered on tactile block structure
 - [x] Primitive physics proxy separated from rendered geometry.
 - [x] First stack-collapse puzzle.
 - [x] Second chain-reaction prototype level selectable in HUD.
-- [x] Drag/release throw input.
-- [x] Ballistic trajectory preview.
-- [x] Standard/heavy projectile selector and per-type inventory.
+- [x] Drag/release throw input and ballistic trajectory preview.
+- [x] Standard/heavy/pulse projectile selector and per-type inventory.
+- [x] Pulse projectile radial Havok impulse with expanding energy-wave VFX.
 - [x] `moveBelowY` and `knockDown` objective evaluation.
 - [x] Score/HUD and fast reset.
+- [x] Collision impulse score bonuses and combo multiplier/window.
+- [x] Three-star result thresholds, retry and next-level flow.
 - [x] Collision impulse routed into procedural impact audio.
 - [x] Velocity-based settled-world detection.
 - [x] Authored five-segment breakable columns.
 - [x] Havok hinge mechanism for spinner entities.
-- [x] Procedural WebAudio throw/impact/goal effects.
+- [x] Procedural WebAudio throw/impact/pulse/goal effects.
 - [x] Original prototype 3D model library plus icons/textures/particle presets.
 - [x] GitHub Actions typecheck/build workflow.
 
 ## Next implementation block
-1. Add pulse projectile with radial impulse gameplay and VFX.
-2. Add score combo accounting from distinct collision chains.
-3. Add three-star result thresholds and results/next-level flow.
-4. Add particle bursts, dust and ceramic shard visual effects.
-5. Add bumper-specific restitution and interaction effects.
-6. Add protect-zone and remove-block modes.
-7. Tune touch controls and mobile performance.
-8. Add developer physics debug overlay.
-9. Add in-browser level editor with JSON import/export.
-10. Add broader authored level pack and progression metadata.
+1. Add dust, ceramic shard and impact spark particle systems.
+2. Add bumper-specific restitution and interaction effects.
+3. Add protect-zone and remove-block modes.
+4. Tune touch controls, haptics hooks and mobile performance.
+5. Add a developer physics debug overlay and performance counters.
+6. Add in-browser level editor with transform gizmos and JSON import/export.
+7. Add progression metadata, local persistence and a broader authored level pack.
+8. Add production audio assets and adaptive mix snapshots.
 
 ## Asset set
 The prototype pack contains structural blocks, cylinder/wedge pieces, platforms, standard/heavy/pulse projectiles, goal core, target totem, bumper, spinner, arch and segmented column. Production art can replace visuals without changing canonical physics dimensions.

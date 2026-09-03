@@ -2,7 +2,7 @@
   "id":"prototype-002","name":"Crossfire","mode":"chainReaction",
   "arena":{"platform":"platform.round","gravity":[0,-9.81,0]},
   "camera":{"target":[0,1.4,0],"alpha":-1.2,"beta":1.1,"radius":13},
-  "inventory":{"projectile.ball":2,"projectile.heavy":1},
+  "inventory":{"projectile.ball":2,"projectile.heavy":1,"projectile.pulse":1},
   "entities":[
     {"id":"towerA","asset":"breakable.column","material":"ceramic_cyan","position":[-2,1.25,0],"motion":"DYNAMIC","breakThreshold":7.5},
     {"id":"towerB","asset":"breakable.column","material":"ceramic_amber","position":[2,1.25,0],"motion":"DYNAMIC","breakThreshold":7.5},
@@ -10,5 +10,5 @@
     {"id":"target1","asset":"target.totem","material":"ceramic_violet","position":[0,0.7,2.2],"motion":"DYNAMIC","tags":["target"]}
   ],
   "objectives":[{"type":"knockDown","targetTag":"target","maxUpDot":0.45,"required":1}],
-  "scoring":{"base":1400,"projectilePenalty":180,"comboMultiplier":1.25}
+  "scoring":{"base":1400,"projectilePenalty":180,"impactComboWindowMs":900,"comboMultiplier":1.25,"starThresholds":[650,1000,1350]}
 }

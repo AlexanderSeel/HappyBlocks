@@ -7,7 +7,13 @@ if (!canvas) {
   throw new Error("#game-canvas was not found");
 }
 
+const levelUrls = [
+  "/levels/level_001_first_collapse.json",
+  "/levels/level_002_crossfire.json",
+];
 const game = new HappyBlocksGame(canvas);
+game.setLevelSequence(levelUrls);
+
 const levelButtons = [
   ...document.querySelectorAll<HTMLButtonElement>("[data-level-url]"),
 ];
@@ -18,13 +24,9 @@ for (const button of levelButtons) {
     if (!levelUrl) {
       return;
     }
-
-    for (const candidate of levelButtons) {
-      candidate.dataset.active = String(candidate === button);
-    }
     void game.loadLevel(levelUrl);
   });
 }
 
-await game.start("/levels/level_001_first_collapse.json");
+await game.start(levelUrls[0]);
 window.addEventListener("beforeunload", () => game.dispose(), { once: true });

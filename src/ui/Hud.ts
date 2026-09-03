@@ -9,11 +9,17 @@ export class Hud {
   private readonly level = this.req("level-name");
   private readonly shots = this.req("shots");
   private readonly score = this.req("score");
+  private readonly combo = this.req("combo");
   private readonly status = this.req("status");
   private readonly powerWrap = this.req("power-wrap");
   private readonly powerBar = this.req("power-bar");
   private readonly projectileSelector = this.req("projectile-selector");
+  private readonly resultPanel = this.req("result-panel");
+  private readonly resultStars = this.req("result-stars");
+  private readonly resultScore = this.req("result-score");
   readonly resetButton = this.req("reset-button") as HTMLButtonElement;
+  readonly resultRetryButton = this.req("result-retry") as HTMLButtonElement;
+  readonly resultNextButton = this.req("result-next") as HTMLButtonElement;
 
   setLevel(value: string): void {
     this.level.textContent = value;
@@ -25,6 +31,10 @@ export class Hud {
 
   setScore(value: number): void {
     this.score.textContent = Math.max(0, Math.round(value)).toLocaleString();
+  }
+
+  setCombo(value: number): void {
+    this.combo.textContent = value > 1 ? `×${value}` : "—";
   }
 
   setStatus(text: string, state: "normal" | "win" = "normal"): void {
@@ -54,6 +64,19 @@ export class Hud {
       button.addEventListener("click", () => onSelect(item.id));
       this.projectileSelector.append(button);
     }
+  }
+
+  showResult(score: number, stars: number, hasNext: boolean): void {
+    this.resultScore.textContent = `${Math.round(score).toLocaleString()} POINTS`;
+    this.resultStars.textContent = [0, 1, 2]
+      .map((index) => (index < stars ? "★" : "☆"))
+      .join(" ");
+    this.resultNextButton.hidden = !hasNext;
+    this.resultPanel.hidden = false;
+  }
+
+  hideResult(): void {
+    this.resultPanel.hidden = true;
   }
 
   private req(id: string): HTMLElement {

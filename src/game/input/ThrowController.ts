@@ -18,7 +18,7 @@ export interface ThrowEvents {
   getProjectileAsset: () => string;
   onAim: (power: number) => void;
   onThrow: (assetId: string) => void;
-  onImpact: (assetId: string, impulse: number) => void;
+  onImpact: (assetId: string, impulse: number, point: Vector3) => void;
 }
 
 interface RuntimeProjectile {
@@ -27,6 +27,7 @@ interface RuntimeProjectile {
   aggregate: PhysicsAggregate;
   disposeVisual: () => void;
   lastImpactAt: number;
+  pulseTriggered: boolean;
 }
 
 export class ThrowController {
@@ -122,21 +123,30 @@ export class ThrowController {
 
   private spawn(velocity: Vector3, assetId: string): void {
     const definition = ASSETS[assetId];
-    if (!definition || definition.kind !== "sphere") {
+    if (!definition || !["sphere", "capsule"].includes(definition.kind)) {
       throw new Error(`Unsupported projectile '${assetId}'`);
     }
 
-    const mesh = MeshBuilder.CreateSphere(
-      `projectile-${this.projectiles.length + 1}`,
-      { diameter: definition.radius! * 2, segments: 20 },
-      this.scene,
-    );
+    const mesh =
+      definition.kind === "capsule"
+        ? MeshBuilder.CreateCapsule(
+            `projectile-${this.projectiles.length + 1}`,
+            { height: definition.dimensions[1], radius: definition.radius! },
+            this.scene,
+          )
+        : MeshBuilder.CreateSphere(
+            `projectile-${this.projectiles.length + 1}`,
+            { diameter: definition.radius! * 2, segments: 20 },
+            this.scene,
+          );
     mesh.position.copyFrom(this.launchOrigin);
 
     const material =
       assetId === "projectile.heavy"
         ? this.materials.metal
-        : this.materials.projectile;
+        : assetId === "projectile.pulse"
+          ? this.materials.energy
+          : this.materials.projectile;
     mesh.material = material;
 
     const visual = this.visuals?.instantiate(
@@ -167,15 +177,28 @@ export class ThrowController {
       aggregate,
       disposeVisual: visual?.dispose ?? (() => undefined),
       lastImpactAt: 0,
+      pulseTriggered: false,
     };
 
     aggregate.body.getCollisionObservable().add((collision) => {
       const now = performance.now();
+      const point = collision.point?.clone() ?? projectile.mesh.position.clone();
+
+      if (
+        assetId === "projectile.pulse" &&
+        !projectile.pulseTriggered &&
+        collision.impulse >= 0.65
+      ) {
+        projectile.pulseTriggered = true;
+        this.events.onImpact(assetId, Math.max(2, collision.impulse), point);
+        return;
+      }
+
       if (collision.impulse < 0.3 || now - projectile.lastImpactAt < 85) {
         return;
       }
       projectile.lastImpactAt = now;
-      this.events.onImpact(assetId, collision.impulse);
+      this.events.onImpact(assetId, collision.impulse, point);
     });
 
     this.projectiles.push(projectile);

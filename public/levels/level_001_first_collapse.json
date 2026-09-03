@@ -11,5 +11,5 @@
     {"id":"goal","asset":"goal.energyCore","material":"energy","position":[0,4.35,0],"motion":"DYNAMIC","tags":["goal","fragile"]}
   ],
   "objectives":[{"type":"moveBelowY","targetTag":"goal","y":1.0,"required":1}],
-  "scoring":{"base":1000,"projectilePenalty":150,"timePenaltyPerSecond":2,"impactComboWindowMs":900}
+  "scoring":{"base":1000,"projectilePenalty":150,"timePenaltyPerSecond":2,"impactComboWindowMs":900,"comboMultiplier":1.15,"starThresholds":[450,700,900]}
 }
