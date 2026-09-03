@@ -298,7 +298,9 @@ export class HappyBlocksGame {
     entity.mesh.dispose();
     this.entities = this.entities.filter((candidate) => candidate !== entity);
 
-    const rotationMatrix = rotation ? Matrix.FromQuaternion(rotation) : Matrix.Identity();
+    const rotationMatrix = rotation
+      ? Matrix.Compose(Vector3.One(), rotation, Vector3.Zero())
+      : Matrix.Identity();
     const offsets = [-0.92, -0.46, 0, 0.46, 0.92];
 
     offsets.forEach((offset, index) => {
