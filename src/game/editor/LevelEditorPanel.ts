@@ -1,5 +1,14 @@
 import { ASSETS } from "../AssetDefinitions";
 import type { HappyBlocksLevel, LevelEntity, LevelMode } from "../levels/types";
+import {
+  EditorViewport,
+  type EditorGizmoMode,
+  type EditorTransform,
+} from "./EditorViewport";
+import {
+  generateLevel,
+  type GeneratorTemplate,
+} from "./LevelGenerator";
 import { notifyEditorSelection } from "./editorEvents";
 
 export interface LevelEditorCallbacks {
@@ -54,6 +63,11 @@ export class LevelEditorPanel {
   private readonly fileInput: HTMLInputElement;
   private readonly status: HTMLElement;
   private readonly transformInputs: Record<TransformInputKey, HTMLInputElement>;
+  private readonly generatorTemplate: HTMLSelectElement;
+  private readonly generatorSeed: HTMLInputElement;
+  private readonly generatorComplexity: HTMLInputElement;
+  private readonly viewport: EditorViewport;
+  private gizmoMode: EditorGizmoMode = "position";
   private working: HappyBlocksLevel | null = null;
   private source: HappyBlocksLevel | null = null;
 
@@ -66,19 +80,27 @@ export class LevelEditorPanel {
     this.toggleButton = document.createElement("button");
     this.toggleButton.id = "editor-button";
     this.toggleButton.type = "button";
-    this.toggleButton.textContent = "Editor";
-    this.toggleButton.title = "Level editor · Ctrl+E";
+    this.toggleButton.textContent = "3D Editor";
+    this.toggleButton.title = "Live 3D level editor · Ctrl+E";
     actions.append(this.toggleButton);
 
     this.panel = document.createElement("aside");
     this.panel.className = "level-editor";
     this.panel.hidden = true;
-    this.panel.setAttribute("aria-label", "HappyBlocks level editor");
+    this.panel.setAttribute("aria-label", "HappyBlocks live 3D level editor");
     this.panel.innerHTML = `
       <header class="level-editor__header">
-        <div><small>DEVELOPER TOOL</small><strong>Level Editor</strong></div>
+        <div><small>LIVE BABYLON AUTHORING</small><strong>3D Level Editor</strong></div>
         <button type="button" data-editor-action="close" aria-label="Close editor">×</button>
       </header>
+      <section class="level-editor__viewport-wrap">
+        <canvas id="editor-viewport" class="level-editor__viewport" aria-label="Live 3D editor viewport"></canvas>
+        <div class="level-editor__gizmos" aria-label="Transform gizmo mode">
+          <button type="button" data-editor-gizmo="position" data-active="true">Move · W</button>
+          <button type="button" data-editor-gizmo="rotation">Rotate · E</button>
+          <button type="button" data-editor-gizmo="scale">Scale · S</button>
+        </div>
+      </section>
       <div class="level-editor__section">
         <label>Entity<select id="editor-entity"></select></label>
         <div class="level-editor__properties">
@@ -97,18 +119,28 @@ export class LevelEditorPanel {
           <fieldset><legend>Scale</legend><label>X<input id="editor-sx" type="number" step="0.05" min="0.05"></label><label>Y<input id="editor-sy" type="number" step="0.05" min="0.05"></label><label>Z<input id="editor-sz" type="number" step="0.05" min="0.05"></label></fieldset>
         </div>
       </div>
-      <div class="level-editor__section level-editor__json">
+      <section class="level-editor__generator">
+        <div class="level-editor__section-title"><span>Procedural Generator</span><small>seeded + repeatable</small></div>
+        <div class="level-editor__generator-grid">
+          <label>Template<select id="editor-generator-template"><option value="tower">Tower</option><option value="bridge">Bridge</option><option value="domino">Domino Chain</option><option value="fortress">Fortress</option><option value="chaos">Physics Chaos</option></select></label>
+          <label>Seed<input id="editor-generator-seed" type="text" value="happyblocks-001"></label>
+          <label>Complexity<input id="editor-generator-complexity" type="range" min="1" max="8" step="1" value="4"></label>
+          <button type="button" data-editor-action="generate" class="level-editor__primary">Generate Live</button>
+        </div>
+      </section>
+      <details class="level-editor__json">
+        <summary>Advanced JSON</summary>
         <label>Level JSON<textarea id="editor-json" spellcheck="false"></textarea></label>
-      </div>
+      </details>
       <div class="level-editor__toolbar">
-        <button type="button" data-editor-action="parse">Parse JSON</button>
-        <button type="button" data-editor-action="preview" class="level-editor__primary">Preview</button>
+        <button type="button" data-editor-action="parse">Apply JSON</button>
+        <button type="button" data-editor-action="preview" class="level-editor__primary">▶ Physics Preview</button>
         <button type="button" data-editor-action="import">Import</button>
         <button type="button" data-editor-action="export">Export</button>
         <button type="button" data-editor-action="restore">Restore</button>
       </div>
       <input id="editor-file" type="file" accept="application/json,.json" hidden>
-      <div id="editor-status" class="level-editor__status">Edit the level, then Preview to rebuild physics.</div>
+      <div id="editor-status" class="level-editor__status">Select objects directly in 3D and use the gizmos.</div>
     `;
     document.body.append(this.panel);
 
@@ -119,6 +151,9 @@ export class LevelEditorPanel {
     this.jsonText = this.req("editor-json") as HTMLTextAreaElement;
     this.fileInput = this.req("editor-file") as HTMLInputElement;
     this.status = this.req("editor-status");
+    this.generatorTemplate = this.req("editor-generator-template") as HTMLSelectElement;
+    this.generatorSeed = this.req("editor-generator-seed") as HTMLInputElement;
+    this.generatorComplexity = this.req("editor-generator-complexity") as HTMLInputElement;
     this.transformInputs = {
       px: this.input("editor-px"),
       py: this.input("editor-py"),
@@ -131,6 +166,15 @@ export class LevelEditorPanel {
       sz: this.input("editor-sz"),
     };
 
+    this.viewport = new EditorViewport(
+      this.req("editor-viewport") as HTMLCanvasElement,
+      {
+        onSelection: (entityId) => this.selectEntity(entityId),
+        onTransform: (entityId, transform) =>
+          this.applyViewportTransform(entityId, transform),
+      },
+    );
+
     this.populatePalette();
     this.toggleButton.addEventListener("click", this.toggle);
     this.entitySelect.addEventListener("change", this.syncEntityEditor);
@@ -138,18 +182,20 @@ export class LevelEditorPanel {
     this.materialSelect.addEventListener("change", this.onPropertiesChanged);
     this.motionSelect.addEventListener("change", this.onPropertiesChanged);
     Object.values(this.transformInputs).forEach((input) =>
-      input.addEventListener("change", this.onTransformChanged),
+      input.addEventListener("input", this.onTransformChanged),
     );
     this.panel.addEventListener("click", this.onPanelClick);
     this.fileInput.addEventListener("change", this.onImportFile);
+    window.addEventListener("keydown", this.onEditorKeydown);
   }
 
   setLevel(level: HappyBlocksLevel): void {
     this.source = this.clone(level);
     this.working = this.clone(level);
-    this.jsonText.value = this.format(this.working);
+    this.syncJsonFromWorking();
     this.rebuildEntityOptions();
-    this.setStatus(`Loaded ${level.name}.`, "normal");
+    this.viewport.setLevel(this.working, this.entitySelect.value || null);
+    this.setStatus(`Loaded ${level.name} into the live 3D editor.`, "normal");
   }
 
   isOpen(): boolean {
@@ -160,9 +206,13 @@ export class LevelEditorPanel {
     const opening = this.panel.hidden;
     this.panel.hidden = !opening;
     this.toggleButton.dataset.active = String(opening);
-    if (opening && this.working) {
-      this.rebuildEntityOptions(this.entitySelect.value);
-    } else if (!opening) {
+    if (opening) {
+      if (this.working) {
+        this.viewport.setLevel(this.working, this.entitySelect.value || null);
+      }
+      requestAnimationFrame(() => this.viewport.resize());
+      this.setStatus("Live edit mode · W move · E rotate · S scale.", "success");
+    } else {
       notifyEditorSelection(null);
     }
   };
@@ -173,6 +223,14 @@ export class LevelEditorPanel {
     notifyEditorSelection(null);
   }
 
+  selectEntity(entityId: string | null): void {
+    if (!entityId || !this.working?.entities.some((entity) => entity.id === entityId)) {
+      return;
+    }
+    this.entitySelect.value = entityId;
+    this.syncEntityEditor();
+  }
+
   dispose(): void {
     notifyEditorSelection(null);
     this.toggleButton.removeEventListener("click", this.toggle);
@@ -181,10 +239,12 @@ export class LevelEditorPanel {
     this.materialSelect.removeEventListener("change", this.onPropertiesChanged);
     this.motionSelect.removeEventListener("change", this.onPropertiesChanged);
     Object.values(this.transformInputs).forEach((input) =>
-      input.removeEventListener("change", this.onTransformChanged),
+      input.removeEventListener("input", this.onTransformChanged),
     );
     this.panel.removeEventListener("click", this.onPanelClick);
     this.fileInput.removeEventListener("change", this.onImportFile);
+    window.removeEventListener("keydown", this.onEditorKeydown);
+    this.viewport.dispose();
     this.toggleButton.remove();
     this.panel.remove();
   }
@@ -205,46 +265,58 @@ export class LevelEditorPanel {
   }
 
   private readonly onPanelClick = (event: MouseEvent): void => {
-    const button = (event.target as HTMLElement).closest<HTMLButtonElement>(
-      "[data-editor-action]",
-    );
-    const action = button?.dataset.editorAction;
-    if (!action) {
+    const target = event.target as HTMLElement;
+    const gizmo = target.closest<HTMLButtonElement>("[data-editor-gizmo]");
+    if (gizmo?.dataset.editorGizmo) {
+      this.setGizmoMode(gizmo.dataset.editorGizmo as EditorGizmoMode);
       return;
     }
 
-    if (action === "close") {
-      this.close();
-    } else if (action === "parse") {
-      this.parseJson();
-    } else if (action === "preview") {
-      void this.preview();
-    } else if (action === "import") {
-      this.fileInput.click();
-    } else if (action === "export") {
-      this.exportJson();
-    } else if (action === "restore") {
-      void this.restore();
-    } else if (action === "add") {
-      this.addEntity();
-    } else if (action === "duplicate") {
-      this.duplicateEntity();
-    } else if (action === "delete") {
-      this.deleteEntity();
-    }
+    const button = target.closest<HTMLButtonElement>("[data-editor-action]");
+    const action = button?.dataset.editorAction;
+    if (!action) return;
+    if (action === "close") this.close();
+    else if (action === "parse") this.parseJson();
+    else if (action === "preview") void this.preview();
+    else if (action === "import") this.fileInput.click();
+    else if (action === "export") this.exportJson();
+    else if (action === "restore") void this.restore();
+    else if (action === "add") this.addEntity();
+    else if (action === "duplicate") this.duplicateEntity();
+    else if (action === "delete") this.deleteEntity();
+    else if (action === "generate") this.generate();
   };
+
+  private readonly onEditorKeydown = (event: KeyboardEvent): void => {
+    if (!this.isOpen() || event.ctrlKey || event.metaKey || event.altKey) return;
+    const target = event.target as HTMLElement | null;
+    if (target?.matches("input, textarea, select")) return;
+    if (event.key.toLowerCase() === "w") this.setGizmoMode("position");
+    else if (event.key.toLowerCase() === "e") this.setGizmoMode("rotation");
+    else if (event.key.toLowerCase() === "s") this.setGizmoMode("scale");
+  };
+
+  private setGizmoMode(mode: EditorGizmoMode): void {
+    this.gizmoMode = mode;
+    this.viewport.setMode(mode);
+    this.panel
+      .querySelectorAll<HTMLButtonElement>("[data-editor-gizmo]")
+      .forEach((button) => {
+        button.dataset.active = String(button.dataset.editorGizmo === mode);
+      });
+    this.setStatus(`${mode[0].toUpperCase()}${mode.slice(1)} gizmo active.`, "normal");
+  }
 
   private readonly onImportFile = (): void => {
     const file = this.fileInput.files?.[0];
-    if (!file) {
-      return;
-    }
+    if (!file) return;
     void file
       .text()
       .then((text) => {
         this.jsonText.value = text;
-        this.parseJson();
-        this.setStatus(`Imported ${file.name}. Preview when ready.`, "success");
+        if (this.parseJson()) {
+          this.setStatus(`Imported ${file.name} into the live viewport.`, "success");
+        }
       })
       .catch((error: unknown) => this.setError(error));
     this.fileInput.value = "";
@@ -253,79 +325,57 @@ export class LevelEditorPanel {
   private readonly syncEntityEditor = (): void => {
     const entity = this.selectedEntity();
     const disabled = !entity;
-    Object.values(this.transformInputs).forEach((input) => {
-      input.disabled = disabled;
-    });
+    Object.values(this.transformInputs).forEach((input) => (input.disabled = disabled));
     this.assetSelect.disabled = disabled;
     this.materialSelect.disabled = disabled;
     this.motionSelect.disabled = disabled;
-
     if (!entity) {
       notifyEditorSelection(null);
+      this.viewport.select(null);
       return;
     }
-
     this.assetSelect.value = entity.asset;
     this.materialSelect.value = entity.material ?? this.defaultMaterial(entity.asset);
     this.motionSelect.value = entity.motion;
-    const [px, py, pz] = entity.position;
-    const [rx, ry, rz] = entity.rotation ?? [0, 0, 0];
-    const [sx, sy, sz] = entity.scale ?? [1, 1, 1];
-    this.transformInputs.px.valueAsNumber = px;
-    this.transformInputs.py.valueAsNumber = py;
-    this.transformInputs.pz.valueAsNumber = pz;
-    this.transformInputs.rx.valueAsNumber = rx;
-    this.transformInputs.ry.valueAsNumber = ry;
-    this.transformInputs.rz.valueAsNumber = rz;
-    this.transformInputs.sx.valueAsNumber = sx;
-    this.transformInputs.sy.valueAsNumber = sy;
-    this.transformInputs.sz.valueAsNumber = sz;
+    this.writeTransformInputs(entity);
+    this.viewport.select(entity.id);
     notifyEditorSelection(entity.id);
   };
 
   private readonly onPropertiesChanged = (): void => {
     const entity = this.selectedEntity();
-    if (!entity) {
-      return;
-    }
+    if (!entity || !this.working) return;
     entity.asset = this.assetSelect.value;
     entity.material = this.materialSelect.value;
     entity.motion = this.motionSelect.value === "STATIC" ? "STATIC" : "DYNAMIC";
     this.syncJsonFromWorking();
-    this.setStatus("Entity properties changed · Preview to rebuild physics.", "normal");
+    this.viewport.setLevel(this.working, entity.id);
+    this.setStatus("Entity rebuilt live with the new asset/material.", "success");
   };
 
   private readonly onTransformChanged = (): void => {
     const entity = this.selectedEntity();
-    if (!entity) {
-      return;
-    }
-
-    entity.position = [
-      this.number("px", entity.position[0]),
-      this.number("py", entity.position[1]),
-      this.number("pz", entity.position[2]),
-    ];
-    const rotation = entity.rotation ?? [0, 0, 0];
-    entity.rotation = [
-      this.number("rx", rotation[0]),
-      this.number("ry", rotation[1]),
-      this.number("rz", rotation[2]),
-    ];
-    const scale = entity.scale ?? [1, 1, 1];
-    entity.scale = [
-      Math.max(0.05, this.number("sx", scale[0])),
-      Math.max(0.05, this.number("sy", scale[1])),
-      Math.max(0.05, this.number("sz", scale[2])),
-    ];
+    if (!entity) return;
+    const transform = this.readTransformInputs(entity);
+    entity.position = transform.position;
+    entity.rotation = transform.rotation;
+    entity.scale = transform.scale;
     this.syncJsonFromWorking();
-    this.setStatus("Transform changed · Preview to rebuild the physics scene.", "normal");
+    this.viewport.updateEntity(entity);
   };
 
+  private applyViewportTransform(entityId: string, transform: EditorTransform): void {
+    const entity = this.working?.entities.find((candidate) => candidate.id === entityId);
+    if (!entity) return;
+    entity.position = [...transform.position];
+    entity.rotation = [...transform.rotation];
+    entity.scale = [...transform.scale];
+    if (this.entitySelect.value === entityId) this.writeTransformInputs(entity);
+    this.syncJsonFromWorking();
+  }
+
   private addEntity(): void {
-    if (!this.working) {
-      return;
-    }
+    if (!this.working) return;
     const asset = this.assetSelect.value || EDITOR_ASSET_IDS[0];
     const entity: LevelEntity = {
       id: this.uniqueId(asset.replaceAll(".", "-")),
@@ -340,35 +390,54 @@ export class LevelEditorPanel {
     this.working.entities.push(entity);
     this.syncJsonFromWorking();
     this.rebuildEntityOptions(entity.id);
-    this.setStatus(`Added ${entity.id}. Preview to instantiate it.`, "success");
+    this.viewport.setLevel(this.working, entity.id);
+    this.setStatus(`Added ${entity.id} live.`, "success");
   }
 
   private duplicateEntity(): void {
     const source = this.selectedEntity();
-    if (!source || !this.working) {
-      return;
-    }
+    if (!source || !this.working) return;
     const copy = this.cloneEntity(source);
     copy.id = this.uniqueId(`${source.id}-copy`);
-    copy.position = [source.position[0] + 0.35, source.position[1], source.position[2]];
+    copy.position = [source.position[0] + 0.45, source.position[1], source.position[2] + 0.15];
     this.working.entities.push(copy);
     this.syncJsonFromWorking();
     this.rebuildEntityOptions(copy.id);
-    this.setStatus(`Duplicated ${source.id} as ${copy.id}.`, "success");
+    this.viewport.setLevel(this.working, copy.id);
+    this.setStatus(`Duplicated ${source.id}.`, "success");
   }
 
   private deleteEntity(): void {
     const entity = this.selectedEntity();
-    if (!entity || !this.working) {
-      return;
-    }
+    if (!entity || !this.working) return;
     const index = this.working.entities.indexOf(entity);
     this.working.entities.splice(index, 1);
-    notifyEditorSelection(null);
     this.syncJsonFromWorking();
     const next = this.working.entities[Math.min(index, this.working.entities.length - 1)];
     this.rebuildEntityOptions(next?.id);
-    this.setStatus(`Deleted ${entity.id}. Preview to rebuild the scene.`, "success");
+    this.viewport.setLevel(this.working, next?.id ?? null);
+    this.setStatus(`Deleted ${entity.id}.`, "success");
+  }
+
+  private generate(): void {
+    if (!this.working) return;
+    try {
+      const generated = generateLevel(this.working, {
+        template: this.generatorTemplate.value as GeneratorTemplate,
+        seed: this.generatorSeed.value.trim() || "happyblocks",
+        complexity: Number(this.generatorComplexity.value),
+      });
+      this.working = generated;
+      this.syncJsonFromWorking();
+      this.rebuildEntityOptions();
+      this.viewport.setLevel(generated, generated.entities[0]?.id ?? null);
+      this.setStatus(
+        `Generated ${generated.entities.length} entities live. Physics Preview when ready.`,
+        "success",
+      );
+    } catch (error) {
+      this.setError(error);
+    }
   }
 
   private parseJson(): boolean {
@@ -377,7 +446,8 @@ export class LevelEditorPanel {
       this.working = this.clone(level);
       this.syncJsonFromWorking();
       this.rebuildEntityOptions(this.entitySelect.value);
-      this.setStatus("JSON parsed successfully.", "success");
+      this.viewport.setLevel(this.working, this.entitySelect.value || null);
+      this.setStatus("JSON applied to the live 3D viewport.", "success");
       return true;
     } catch (error) {
       this.setError(error);
@@ -386,14 +456,12 @@ export class LevelEditorPanel {
   }
 
   private async preview(): Promise<void> {
-    if (!this.parseJson() || !this.working) {
-      return;
-    }
+    if (!this.working) return;
     try {
-      this.setStatus("Rebuilding physics preview…", "normal");
+      this.setStatus("Building Havok physics preview…", "normal");
       await this.callbacks.onPreview(this.clone(this.working));
       notifyEditorSelection(this.entitySelect.value || null);
-      this.setStatus("Preview active · editor results do not unlock progression.", "success");
+      this.setStatus("Physics preview active behind the editor.", "success");
     } catch (error) {
       this.setError(error);
     }
@@ -407,6 +475,7 @@ export class LevelEditorPanel {
         this.working = this.clone(this.source);
         this.syncJsonFromWorking();
         this.rebuildEntityOptions();
+        this.viewport.setLevel(this.working);
       }
       this.setStatus("Authored level restored.", "success");
     } catch (error) {
@@ -415,9 +484,7 @@ export class LevelEditorPanel {
   }
 
   private exportJson(): void {
-    if (!this.parseJson() || !this.working) {
-      return;
-    }
+    if (!this.working) return;
     const blob = new Blob([this.format(this.working)], {
       type: "application/json;charset=utf-8",
     });
@@ -445,21 +512,52 @@ export class LevelEditorPanel {
     this.syncEntityEditor();
   }
 
+  private writeTransformInputs(entity: LevelEntity): void {
+    const [px, py, pz] = entity.position;
+    const [rx, ry, rz] = entity.rotation ?? [0, 0, 0];
+    const [sx, sy, sz] = entity.scale ?? [1, 1, 1];
+    this.transformInputs.px.valueAsNumber = px;
+    this.transformInputs.py.valueAsNumber = py;
+    this.transformInputs.pz.valueAsNumber = pz;
+    this.transformInputs.rx.valueAsNumber = rx;
+    this.transformInputs.ry.valueAsNumber = ry;
+    this.transformInputs.rz.valueAsNumber = rz;
+    this.transformInputs.sx.valueAsNumber = sx;
+    this.transformInputs.sy.valueAsNumber = sy;
+    this.transformInputs.sz.valueAsNumber = sz;
+  }
+
+  private readTransformInputs(entity: LevelEntity): EditorTransform {
+    const rotation = entity.rotation ?? [0, 0, 0];
+    const scale = entity.scale ?? [1, 1, 1];
+    return {
+      position: [
+        this.number("px", entity.position[0]),
+        this.number("py", entity.position[1]),
+        this.number("pz", entity.position[2]),
+      ],
+      rotation: [
+        this.number("rx", rotation[0]),
+        this.number("ry", rotation[1]),
+        this.number("rz", rotation[2]),
+      ],
+      scale: [
+        Math.max(0.05, this.number("sx", scale[0])),
+        Math.max(0.05, this.number("sy", scale[1])),
+        Math.max(0.05, this.number("sz", scale[2])),
+      ],
+    };
+  }
+
   private selectedEntity(): LevelEntity | undefined {
-    return this.working?.entities.find(
-      (entity) => entity.id === this.entitySelect.value,
-    );
+    return this.working?.entities.find((entity) => entity.id === this.entitySelect.value);
   }
 
   private uniqueId(prefix: string): string {
     const ids = new Set(this.working?.entities.map((entity) => entity.id) ?? []);
-    if (!ids.has(prefix)) {
-      return prefix;
-    }
+    if (!ids.has(prefix)) return prefix;
     let index = 2;
-    while (ids.has(`${prefix}-${index}`)) {
-      index += 1;
-    }
+    while (ids.has(`${prefix}-${index}`)) index += 1;
     return `${prefix}-${index}`;
   }
 
@@ -492,18 +590,14 @@ export class LevelEditorPanel {
       if (!entity.id || !entity.asset || !ASSETS[entity.asset]) {
         throw new Error(`Unknown or incomplete entity '${entity.id ?? "?"}'.`);
       }
-      if (ids.has(entity.id)) {
-        throw new Error(`Duplicate entity id '${entity.id}'.`);
-      }
+      if (ids.has(entity.id)) throw new Error(`Duplicate entity id '${entity.id}'.`);
       ids.add(entity.id);
     }
     return parsed as HappyBlocksLevel;
   }
 
   private syncJsonFromWorking(): void {
-    if (this.working) {
-      this.jsonText.value = this.format(this.working);
-    }
+    if (this.working) this.jsonText.value = this.format(this.working);
   }
 
   private cloneEntity(entity: LevelEntity): LevelEntity {
@@ -534,9 +628,7 @@ export class LevelEditorPanel {
 
   private req(id: string): HTMLElement {
     const element = document.getElementById(id);
-    if (!element) {
-      throw new Error(`#${id} was not found`);
-    }
+    if (!element) throw new Error(`#${id} was not found`);
     return element;
   }
 
