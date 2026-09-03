@@ -11,6 +11,18 @@ export interface StructureGeneratorOptions {
   template: StructureTemplate;
   anchor: Vec3Tuple;
   prefix: string;
+  yaw?: number;
+}
+
+function rotateOffset(offset: Vec3Tuple, yaw: number): Vec3Tuple {
+  if (Math.abs(yaw) < 0.000001) return [...offset];
+  const cos = Math.cos(yaw);
+  const sin = Math.sin(yaw);
+  return [
+    offset[0] * cos + offset[2] * sin,
+    offset[1],
+    -offset[0] * sin + offset[2] * cos,
+  ];
 }
 
 export function generateStructure(
@@ -19,6 +31,7 @@ export function generateStructure(
   const entities: LevelEntity[] = [];
   let counter = 0;
   const [ax, ay, az] = options.anchor;
+  const yaw = options.yaw ?? 0;
 
   const add = (
     asset: string,
@@ -29,12 +42,17 @@ export function generateStructure(
     motion: "STATIC" | "DYNAMIC" = "DYNAMIC",
     extra: Partial<LevelEntity> = {},
   ): void => {
+    const transformedOffset = rotateOffset(offset, yaw);
     entities.push({
       id: `${options.prefix}-${++counter}`,
       asset,
       material,
-      position: [ax + offset[0], ay + offset[1], az + offset[2]],
-      rotation,
+      position: [
+        ax + transformedOffset[0],
+        ay + transformedOffset[1],
+        az + transformedOffset[2],
+      ],
+      rotation: [rotation[0], rotation[1] + yaw, rotation[2]],
       scale: [1, 1, 1],
       motion,
       tags,
@@ -49,7 +67,12 @@ export function generateStructure(
       }
     }
     add("block.slab", "metal", [0, 2.25, 0], [0, 0, 0], ["structure", "tower"]);
-    for (const [x, z] of [[-0.78,-0.62],[0.78,-0.62],[-0.78,0.62],[0.78,0.62]] as Array<[number,number]>) {
+    for (const [x, z] of [
+      [-0.78, -0.62],
+      [0.78, -0.62],
+      [-0.78, 0.62],
+      [0.78, 0.62],
+    ] as Array<[number, number]>) {
       add("block.cube", "ceramic_cyan", [x, 2.88, z], [0, 0, 0], ["structure", "tower"]);
     }
     add("block.plank", "wood", [0, 3.48, -0.62], [0, 0, 0], ["structure", "tower"]);
@@ -63,9 +86,17 @@ export function generateStructure(
       add("block.cube", "stone", [x, 2.55, 0], [0, 0, 0], ["structure", "gate"]);
       add("block.cube", "ceramic_amber", [x, 3.55, 0], [0, 0, 0], ["structure", "gate"]);
     }
-    add("block.plank", "metal", [0, 3.0, 0], [0, 0, 0], ["structure", "gate"]);
+    add("block.plank", "metal", [0, 3, 0], [0, 0, 0], ["structure", "gate"]);
     add("block.plank", "wood", [0, 4.1, 0], [0, 0, 0], ["structure", "gate"]);
-    add("breakable.column", "ceramic_cyan", [0, 1.2, 0], [0, 0, 0], ["structure", "gate", "breakable"], "DYNAMIC", { breakThreshold: 4.2 });
+    add(
+      "breakable.column",
+      "ceramic_cyan",
+      [0, 1.2, 0],
+      [0, 0, 0],
+      ["structure", "gate", "breakable"],
+      "DYNAMIC",
+      { breakThreshold: 4.2 },
+    );
     add("spinner.cross", "metal", [0, 2.2, -0.72], [0, 0, 0], ["structure", "mechanism"]);
     for (const x of [-2.35, 2.35]) {
       add("block.pillar", "stone", [x, 1.05, 0], [0, 0, 0], ["structure", "wall"]);
@@ -86,7 +117,13 @@ export function generateStructure(
   } else if (options.template === "rampart") {
     for (let x = -3; x <= 3; x += 1.5) {
       add("block.pillar", "stone", [x, 1.05, 0], [0, 0, 0], ["structure", "wall"]);
-      add("block.cube", x % 3 === 0 ? "ceramic_amber" : "ceramic_cyan", [x, 2.55, 0], [0, 0, 0], ["structure", "battlement"]);
+      add(
+        "block.cube",
+        x % 3 === 0 ? "ceramic_amber" : "ceramic_cyan",
+        [x, 2.55, 0],
+        [0, 0, 0],
+        ["structure", "battlement"],
+      );
     }
     for (const x of [-2.25, -0.75, 0.75, 2.25]) {
       add("block.plank", "wood", [x, 2.2, 0], [0, 0, 0], ["structure", "wall"]);
