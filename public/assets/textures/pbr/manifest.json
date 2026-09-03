@@ -1,0 +1,92 @@
+{
+  "version": 2,
+  "ormChannels": {
+    "r": "ambientOcclusion",
+    "g": "roughness",
+    "b": "metallic"
+  },
+  "profiles": {
+    "hd": {
+      "resolution": {
+        "baseColor": 2048,
+        "normal": 1024,
+        "orm": 1024,
+        "emissive": 1024
+      },
+      "materials": {
+        "wood": {
+          "baseColor": "wood_basecolor.webp",
+          "normal": "wood_normal.webp",
+          "orm": "wood_orm.webp"
+        },
+        "stone": {
+          "baseColor": "stone_basecolor.webp",
+          "normal": "stone_normal.webp",
+          "orm": "stone_orm.webp"
+        },
+        "metal": {
+          "baseColor": "metal_basecolor.webp",
+          "normal": "metal_normal.webp",
+          "orm": "metal_orm.webp"
+        },
+        "rubber": {
+          "baseColor": "rubber_basecolor.webp",
+          "normal": "rubber_normal.webp",
+          "orm": "rubber_orm.webp"
+        },
+        "ceramic": {
+          "baseColor": "ceramic_basecolor.webp",
+          "normal": "ceramic_normal.webp",
+          "orm": "ceramic_orm.webp"
+        },
+        "energy": {
+          "baseColor": "energy_basecolor.webp",
+          "normal": "energy_normal.webp",
+          "orm": "energy_orm.webp",
+          "emissive": "energy_emissive.webp"
+        }
+      }
+    },
+    "mobile": {
+      "resolution": {
+        "baseColor": 1024,
+        "normal": 512,
+        "orm": 512,
+        "emissive": 512
+      },
+      "materials": {
+        "wood": {
+          "baseColor": "mobile/wood_basecolor.webp",
+          "normal": "mobile/wood_normal.webp",
+          "orm": "mobile/wood_orm.webp"
+        },
+        "stone": {
+          "baseColor": "mobile/stone_basecolor.webp",
+          "normal": "mobile/stone_normal.webp",
+          "orm": "mobile/stone_orm.webp"
+        },
+        "metal": {
+          "baseColor": "mobile/metal_basecolor.webp",
+          "normal": "mobile/metal_normal.webp",
+          "orm": "mobile/metal_orm.webp"
+        },
+        "rubber": {
+          "baseColor": "mobile/rubber_basecolor.webp",
+          "normal": "mobile/rubber_normal.webp",
+          "orm": "mobile/rubber_orm.webp"
+        },
+        "ceramic": {
+          "baseColor": "mobile/ceramic_basecolor.webp",
+          "normal": "mobile/ceramic_normal.webp",
+          "orm": "mobile/ceramic_orm.webp"
+        },
+        "energy": {
+          "baseColor": "mobile/energy_basecolor.webp",
+          "normal": "mobile/energy_normal.webp",
+          "orm": "mobile/energy_orm.webp",
+          "emissive": "mobile/energy_emissive.webp"
+        }
+      }
+    }
+  }
+}
