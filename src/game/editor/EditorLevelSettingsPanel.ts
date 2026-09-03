@@ -1,4 +1,5 @@
 import type { HappyBlocksLevel, Vec3Tuple } from "../levels/types";
+import { SKYBOX_IDS } from "../rendering/SceneEnvironment";
 
 function finite(input: HTMLInputElement | null, fallback: number): number {
   const value = input?.valueAsNumber;
@@ -55,6 +56,16 @@ export function installEditorLevelSettingsPanel(): void {
         <label>Z<input id="editor-gravity-z" type="number" step="0.1"></label>
       </fieldset>
       <fieldset>
+        <legend>Sky environment · single 2:1 image</legend>
+        <label>Sky
+          <select id="editor-skybox">
+            ${SKYBOX_IDS.map((skybox) => `<option value="${skybox}">${skybox.replaceAll("_", " ")}</option>`).join("")}
+          </select>
+        </label>
+        <label>Reflection intensity<input id="editor-sky-intensity" type="range" min="0.2" max="1.8" step="0.05" value="1"></label>
+        <label>Rotation Y<input id="editor-sky-rotation" type="range" min="-3.14" max="3.14" step="0.05" value="0"></label>
+      </fieldset>
+      <fieldset>
         <legend>Camera target</legend>
         <label>X<input id="editor-camera-x" type="number" step="0.1"></label>
         <label>Y<input id="editor-camera-y" type="number" step="0.1"></label>
@@ -86,6 +97,9 @@ export function installEditorLevelSettingsPanel(): void {
   const gx = section.querySelector<HTMLInputElement>("#editor-gravity-x")!;
   const gy = section.querySelector<HTMLInputElement>("#editor-gravity-y")!;
   const gz = section.querySelector<HTMLInputElement>("#editor-gravity-z")!;
+  const skybox = section.querySelector<HTMLSelectElement>("#editor-skybox")!;
+  const skyIntensity = section.querySelector<HTMLInputElement>("#editor-sky-intensity")!;
+  const skyRotation = section.querySelector<HTMLInputElement>("#editor-sky-rotation")!;
   const cx = section.querySelector<HTMLInputElement>("#editor-camera-x")!;
   const cy = section.querySelector<HTMLInputElement>("#editor-camera-y")!;
   const cz = section.querySelector<HTMLInputElement>("#editor-camera-z")!;
@@ -111,6 +125,9 @@ export function installEditorLevelSettingsPanel(): void {
     name.value = level.name;
     platform.value = level.arena.platform;
     [gx.valueAsNumber, gy.valueAsNumber, gz.valueAsNumber] = level.arena.gravity;
+    skybox.value = level.environment?.skybox ?? "clear_lab";
+    skyIntensity.valueAsNumber = level.environment?.intensity ?? 1;
+    skyRotation.valueAsNumber = level.environment?.rotationY ?? 0;
     [cx.valueAsNumber, cy.valueAsNumber, cz.valueAsNumber] = level.camera.target;
     alpha.valueAsNumber = level.camera.alpha;
     beta.valueAsNumber = level.camera.beta;
@@ -160,6 +177,11 @@ export function installEditorLevelSettingsPanel(): void {
       level.name = nextName;
       level.arena.platform = platform.value;
       level.arena.gravity = vec3(gx, gy, gz, level.arena.gravity);
+      level.environment = {
+        skybox: skybox.value,
+        intensity: Math.min(1.8, Math.max(0.2, finite(skyIntensity, 1))),
+        rotationY: Math.min(3.14, Math.max(-3.14, finite(skyRotation, 0))),
+      };
       level.camera.target = vec3(cx, cy, cz, level.camera.target);
       level.camera.alpha = finite(alpha, level.camera.alpha);
       level.camera.beta = Math.min(3.09, Math.max(0.05, finite(beta, level.camera.beta)));
@@ -185,7 +207,7 @@ export function installEditorLevelSettingsPanel(): void {
         level.camera.minRadius ?? 0.2,
         Math.min(level.camera.radius, level.camera.maxRadius ?? Number.POSITIVE_INFINITY),
       );
-      commit(level, "Level, arena and camera settings applied live.");
+      commit(level, "Level, sky environment, arena and camera settings applied live.");
     });
 
   const observer = new MutationObserver(sync);
