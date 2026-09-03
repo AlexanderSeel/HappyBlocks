@@ -14,6 +14,8 @@ import {
   Vector3,
 } from "@babylonjs/core";
 import { ASSETS } from "../AssetDefinitions";
+import type { ProjectileSurface } from "../levels/types";
+import { armInitialPhysics } from "../physics/InitialPhysicsStabilizer";
 import { createDetailedVisual } from "../rendering/DetailedVisualFactory";
 import type { MaterialLibrary } from "../rendering/materials";
 import type { VisualAssetLibrary } from "../rendering/VisualAssetLibrary";
@@ -21,6 +23,7 @@ import type { VisualAssetLibrary } from "../rendering/VisualAssetLibrary";
 export interface ThrowEvents {
   canThrow: () => boolean;
   getProjectileAsset: () => string;
+  getProjectileSurface: (assetId: string) => ProjectileSurface;
   onAim: (power: number) => void;
   onThrow: (assetId: string) => void;
   onImpact: (assetId: string, impulse: number, point: Vector3) => void;
@@ -41,6 +44,12 @@ interface AimState {
   direction: Vector3;
 }
 
+interface OrbitState {
+  x: number;
+  y: number;
+  pointerId: number;
+}
+
 const SCOUT_KEYS = new Set([
   "KeyW",
   "KeyA",
@@ -54,6 +63,7 @@ const SCOUT_KEYS = new Set([
 
 export class ThrowController {
   private aim: AimState | null = null;
+  private orbit: OrbitState | null = null;
   private trajectory: LinesMesh | null = null;
   private readonly projectiles: RuntimeProjectile[] = [];
   private readonly keys = new Set<string>();
@@ -77,7 +87,7 @@ export class ThrowController {
     this.scoutHint = document.createElement("div");
     this.scoutHint.className = "scout-hint";
     this.scoutHint.textContent =
-      "SCOUT  WASD move · Q/E height · Shift boost · RMB orbit · Wheel zoom · LMB pull/release";
+      "SCOUT  WASD move · Q/E height · Shift boost · RMB / Alt+LMB orbit · Wheel zoom · LMB pull/release";
     document.body.append(this.scoutHint);
 
     const camera = this.arcCamera();
@@ -88,14 +98,18 @@ export class ThrowController {
       camera.wheelPrecision = 38;
     }
 
+    this.canvas.addEventListener("contextmenu", this.preventContextMenu);
     this.pointerObserver = scene.onPointerObservable.add((info) => {
       const event = info.event as PointerEvent;
       if (info.type === PointerEventTypes.POINTERDOWN && event.button === 0) {
-        this.begin(event);
+        if (event.altKey) this.beginOrbit(event);
+        else this.begin(event);
       } else if (info.type === PointerEventTypes.POINTERMOVE) {
-        this.move(event);
+        if (this.orbit) this.moveOrbit(event);
+        else this.move(event);
       } else if (info.type === PointerEventTypes.POINTERUP && event.button === 0) {
-        this.release(event);
+        if (this.orbit) this.endOrbit(event);
+        else this.release(event);
       }
     });
 
@@ -130,6 +144,45 @@ export class ThrowController {
       target.isContentEditable ||
       Boolean(target.closest(".level-editor"))
     );
+  }
+
+  private beginOrbit(event: PointerEvent): void {
+    if (this.editorOpen()) return;
+    this.aim = null;
+    this.events.onAim(-1);
+    this.reticle.hidden = true;
+    this.disposeTrajectory();
+    this.orbit = { x: event.clientX, y: event.clientY, pointerId: event.pointerId };
+    try {
+      this.canvas.setPointerCapture(event.pointerId);
+    } catch {
+      // Pointer capture is optional; Babylon still receives the drag in-canvas.
+    }
+    event.preventDefault();
+  }
+
+  private moveOrbit(event: PointerEvent): void {
+    const orbit = this.orbit;
+    const camera = this.arcCamera();
+    if (!orbit || !camera || orbit.pointerId !== event.pointerId) return;
+    const dx = event.clientX - orbit.x;
+    const dy = event.clientY - orbit.y;
+    orbit.x = event.clientX;
+    orbit.y = event.clientY;
+    camera.alpha -= dx * 0.0065;
+    camera.beta = Math.max(0.16, Math.min(Math.PI - 0.16, camera.beta - dy * 0.0065));
+    event.preventDefault();
+  }
+
+  private endOrbit(event: PointerEvent): void {
+    if (!this.orbit || this.orbit.pointerId !== event.pointerId) return;
+    try {
+      this.canvas.releasePointerCapture(event.pointerId);
+    } catch {
+      // No capture to release.
+    }
+    this.orbit = null;
+    event.preventDefault();
   }
 
   private begin(event: PointerEvent): void {
@@ -227,24 +280,23 @@ export class ThrowController {
       definition.kind === "capsule"
         ? MeshBuilder.CreateCapsule(
             name,
-            { height: definition.dimensions[1], radius: definition.radius! },
+            { height: definition.dimensions[1], radius: definition.radius!, tessellation: 32 },
             this.scene,
           )
         : MeshBuilder.CreateSphere(
             name,
-            { diameter: definition.radius! * 2, segments: 24 },
+            { diameter: definition.radius! * 2, segments: 40 },
             this.scene,
           );
     mesh.position.copyFrom(
       this.launchOrigin(velocity.clone().normalize(), definition.radius ?? 0.4),
     );
 
+    const surface = this.events.getProjectileSurface(assetId);
     const material =
-      assetId === "projectile.heavy"
-        ? this.materials.metal
-        : assetId === "projectile.pulse"
-          ? this.materials.energy
-          : this.materials.projectile;
+      this.materials[`projectile_${surface}`] ??
+      this.materials.projectile_chrome ??
+      this.materials.metal;
     mesh.material = material;
 
     const detailed = createDetailedVisual(
@@ -288,6 +340,7 @@ export class ThrowController {
     aggregate.body.getCollisionObservable().add((collision) => {
       const now = performance.now();
       const point = collision.point?.clone() ?? projectile.mesh.position.clone();
+      armInitialPhysics(this.scene);
 
       if (
         assetId === "projectile.pulse" &&
@@ -334,7 +387,7 @@ export class ThrowController {
   }
 
   private updateScoutNavigation(): void {
-    if (this.aim || this.editorOpen()) {
+    if (this.aim || this.orbit || this.editorOpen()) {
       this.keys.clear();
       return;
     }
@@ -381,6 +434,11 @@ export class ThrowController {
 
   private readonly onBlur = (): void => {
     this.keys.clear();
+    this.orbit = null;
+  };
+
+  private readonly preventContextMenu = (event: MouseEvent): void => {
+    event.preventDefault();
   };
 
   private disposeTrajectory(): void {
@@ -390,6 +448,7 @@ export class ThrowController {
 
   reset(): void {
     this.aim = null;
+    this.orbit = null;
     this.keys.clear();
     this.reticle.hidden = true;
     this.disposeTrajectory();
@@ -411,6 +470,7 @@ export class ThrowController {
       this.scene.onBeforeRenderObservable.remove(this.beforeRenderObserver);
       this.beforeRenderObserver = null;
     }
+    this.canvas.removeEventListener("contextmenu", this.preventContextMenu);
     window.removeEventListener("keydown", this.onKeyDown);
     window.removeEventListener("keyup", this.onKeyUp);
     window.removeEventListener("blur", this.onBlur);
