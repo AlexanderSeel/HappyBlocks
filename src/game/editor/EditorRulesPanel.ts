@@ -132,6 +132,7 @@ export function installEditorRulesPanel(): void {
     heavy.valueAsNumber = level.inventory["projectile.heavy"] ?? 0;
     pulse.valueAsNumber = level.inventory["projectile.pulse"] ?? 0;
     removes.valueAsNumber = level.actions?.removes ?? 0;
+
     const entity = selectedEntity(level);
     tags.value = entity?.tags?.join(", ") ?? "";
     mass.value = entity?.massScale === undefined ? "" : String(entity.massScale);
@@ -179,9 +180,11 @@ export function installEditorRulesPanel(): void {
           .split(",")
           .map((value) => value.trim())
           .filter(Boolean);
+
         const massValue = Number(mass.value);
         if (Number.isFinite(massValue) && massValue > 0) entity.massScale = massValue;
         else delete entity.massScale;
+
         const breakValue = Number(breakThreshold.value);
         if (
           breakThreshold.value.trim() &&
@@ -209,6 +212,7 @@ export function installEditorRulesPanel(): void {
       );
       const value = numberValue(objectiveValue, 0.52);
       let objective: LevelObjective;
+
       if (type === "moveBelowY") {
         objective = { type, targetTag, y: value, required };
       } else if (type === "protect") {
@@ -244,5 +248,13 @@ export function installEditorRulesPanel(): void {
 
   entitySelect.addEventListener("change", sync);
   jsonText.addEventListener("change", sync);
+
+  // LevelEditorPanel rebuilds the entity <option> list whenever a new level,
+  // generator result, JSON document, undo/redo snapshot, or asset replacement
+  // is applied. Observing that list gives this extension a reliable state-sync
+  // signal without coupling it to the editor's private implementation.
+  const entityListObserver = new MutationObserver(sync);
+  entityListObserver.observe(entitySelect, { childList: true });
+
   sync();
 }
