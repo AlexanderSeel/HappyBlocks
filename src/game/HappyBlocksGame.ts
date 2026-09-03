@@ -313,7 +313,9 @@ export class HappyBlocksGame {
       this.hud.setStatus(
         level.mode === "protect"
           ? "Knock down the threats · keep the energy core safe."
-          : "Drag backward, aim, release.",
+          : level.mode === "scoreAttack"
+            ? "Score Attack · use every shot and build the biggest chain reactions."
+            : "Drag backward, aim, release.",
       );
     }
 
@@ -690,12 +692,24 @@ export class HappyBlocksGame {
       return;
     }
 
-    if (this.level.objectives.every((objective) => this.objective(objective))) {
+    if (
+      this.level.mode !== "scoreAttack" &&
+      this.level.objectives.every((objective) => this.objective(objective))
+    ) {
       this.completeLevel();
       return;
     }
 
     if (this.updateSettledState()) {
+      return;
+    }
+
+    if (
+      this.level.mode === "scoreAttack" &&
+      !this.settling &&
+      this.totalActionsRemaining() <= 0
+    ) {
+      this.completeLevel();
       return;
     }
 
@@ -748,10 +762,11 @@ export class HappyBlocksGame {
         nextUrl &&
         this.progress.isUnlocked(this.levelSequence, nextUrl),
     );
+    const resultLabel = this.level?.mode === "scoreAttack" ? "Score attack complete" : "Structure solved";
     this.hud.setStatus(
       this.editorPreview
         ? `Editor preview solved · ${score.toLocaleString()} points`
-        : `Structure solved · ${score.toLocaleString()} points`,
+        : `${resultLabel} · ${score.toLocaleString()} points`,
       "win",
     );
     this.hud.showResult(score, stars, hasNext);
@@ -822,10 +837,14 @@ export class HappyBlocksGame {
       this.totalActionsRemaining() > 0
         ? this.level?.mode === "remove"
           ? "World settled · choose the next block to pull."
-          : "World settled · line up the next shot."
+          : this.level?.mode === "scoreAttack"
+            ? "World settled · spend the next shot where it can multiply the score."
+            : "World settled · line up the next shot."
         : this.level?.mode === "remove"
           ? "World settled · no pulls left."
-          : "World settled · no shots left.",
+          : this.level?.mode === "scoreAttack"
+            ? "World settled · score attack complete."
+            : "World settled · no shots left.",
     );
     return true;
   }
@@ -904,7 +923,7 @@ export class HappyBlocksGame {
 
   private totalShotsRemaining(): number {
     return this.projectileIds().reduce(
-      (total, id) => total + (this.inventory[id] ?? 0),
+      (sum, id) => sum + (this.inventory[id] ?? 0),
       0,
     );
   }
@@ -919,47 +938,30 @@ export class HappyBlocksGame {
     if (!this.level) {
       return 0;
     }
-
-    const elapsed = Math.max(0, (performance.now() - this.startedAt) / 1000);
     const base = this.level.scoring?.base ?? 1000;
-    const shotPenalty =
-      (this.level.scoring?.projectilePenalty ?? 120) * this.shotsUsed;
-    const timePenalty =
-      (this.level.scoring?.timePenaltyPerSecond ?? 0) * elapsed;
-
+    const projectilePenalty = this.level.scoring?.projectilePenalty ?? 90;
+    const timePenaltyPerSecond = this.level.scoring?.timePenaltyPerSecond ?? 0;
+    const elapsedSeconds = Math.max(0, (performance.now() - this.startedAt) / 1000);
     return Math.max(
       0,
-      Math.round(base + this.impactBonus - shotPenalty - timePenalty),
+      Math.round(
+        base +
+          this.impactBonus -
+          this.shotsUsed * projectilePenalty -
+          elapsedSeconds * timePenaltyPerSecond,
+      ),
     );
   }
 
   private syncLevelButtons(): void {
-    for (const button of document.querySelectorAll<HTMLButtonElement>(
-      "[data-level-url]",
-    )) {
-      const levelUrl = button.dataset.levelUrl;
-      if (!levelUrl) {
-        continue;
-      }
-      button.dataset.baseLabel ??= button.textContent?.trim() ?? "Level";
-      const unlocked = this.progress.isUnlocked(this.levelSequence, levelUrl);
-      const progress = this.progress.get(levelUrl);
-      button.disabled = !unlocked;
-      button.dataset.locked = String(!unlocked);
-      button.dataset.active = String(levelUrl === this.currentLevelUrl);
-      const stars = progress
-        ? `${"★".repeat(progress.stars)}${"☆".repeat(3 - progress.stars)}`
-        : "";
-      button.textContent = !unlocked
-        ? `${button.dataset.baseLabel} · LOCKED`
-        : stars
-          ? `${button.dataset.baseLabel} · ${stars}`
-          : button.dataset.baseLabel;
-      button.title = progress
-        ? `Best ${progress.bestScore.toLocaleString()} · ${progress.stars}/3 stars`
-        : unlocked
-          ? "Available"
-          : "Complete the previous level to unlock";
+    const buttons = [
+      ...document.querySelectorAll<HTMLButtonElement>("[data-level-url]"),
+    ];
+    for (const button of buttons) {
+      const url = button.dataset.levelUrl;
+      if (!url) continue;
+      button.disabled = !this.progress.isUnlocked(this.levelSequence, url);
+      button.dataset.active = String(url === this.currentLevelUrl);
     }
   }
 
@@ -967,51 +969,31 @@ export class HappyBlocksGame {
     if (!this.level) {
       return;
     }
-    await this.buildScene(this.level);
+    await this.buildScene(this.cloneLevel(this.level));
   }
 
   private readonly resize = (): void => this.engine.resize();
 
   private readonly keydown = (event: KeyboardEvent): void => {
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "e") {
-      event.preventDefault();
-      this.editor.toggle();
+    if (this.editor.isOpen()) {
       return;
     }
-
-    if (event.key === "Escape" && this.editor.isOpen()) {
-      this.editor.close();
-      return;
+    if (event.key.toLowerCase() === "r") {
+      void this.reset();
     }
-
     if (event.key === "F3") {
       event.preventDefault();
       this.debug.toggle();
-      return;
     }
-
-    if (event.key.toLowerCase() === "r") {
-      void this.reset();
-      return;
+    const number = Number(event.key);
+    if (Number.isInteger(number) && number > 0) {
+      const id = this.projectileIds()[number - 1];
+      if (id && (this.inventory[id] ?? 0) > 0) {
+        this.selectedProjectile = id;
+        this.audio.play("uiClick");
+        this.refreshProjectileHud();
+      }
     }
-
-    if (this.level?.mode === "remove" || this.editor.isOpen()) {
-      return;
-    }
-
-    const projectileIndex = Number.parseInt(event.key, 10) - 1;
-    if (!Number.isInteger(projectileIndex) || projectileIndex < 0) {
-      return;
-    }
-
-    const assetId = this.projectileIds()[projectileIndex];
-    if (!assetId || (this.inventory[assetId] ?? 0) <= 0) {
-      return;
-    }
-
-    this.selectedProjectile = assetId;
-    this.audio.play("uiClick");
-    this.refreshProjectileHud();
   };
 
   dispose(): void {
@@ -1019,11 +1001,10 @@ export class HappyBlocksGame {
     window.removeEventListener("keydown", this.keydown);
     this.throwController?.dispose();
     this.removeController?.dispose();
-    this.visuals?.dispose();
-    this.scene?.dispose();
     this.editor.dispose();
     this.debug.dispose();
-    this.audio.dispose();
+    this.visuals?.dispose();
+    this.scene?.dispose();
     this.engine.dispose();
   }
 }
