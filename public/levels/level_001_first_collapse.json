@@ -1,8 +1,10 @@
 {
   "id":"prototype-001","name":"First Collapse","mode":"throw",
   "arena":{"platform":"platform.square","gravity":[0,-9.81,0]},
+  "environment":{"skybox":"clear_lab","intensity":1.05,"rotationY":0.15},
   "camera":{"target":[0,1.6,0],"alpha":-1.55,"beta":1.15,"radius":12,"minRadius":7,"maxRadius":18},
   "inventory":{"projectile.ball":3},
+  "projectileSkins":{"projectile.ball":"chrome"},
   "entities":[
     {"id":"baseL","asset":"block.cube","material":"wood","position":[-1.1,0.75,0],"motion":"DYNAMIC"},
     {"id":"baseR","asset":"block.cube","material":"wood","position":[1.1,0.75,0],"motion":"DYNAMIC"},
