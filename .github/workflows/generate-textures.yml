@@ -1,0 +1,76 @@
+name: Generate HD PBR textures
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "tools/generate_texture_kit.py"
+      - ".github/workflows/generate-textures.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: happyblocks-texture-generation
+  cancel-in-progress: true
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install texture tooling
+        run: python -m pip install --disable-pip-version-check "Pillow==11.3.0"
+
+      - name: Generate deterministic PBR pack
+        run: python tools/generate_texture_kit.py
+
+      - name: Validate generated pack
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from PIL import Image
+
+          root = Path("public/assets/textures/pbr")
+          manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
+          expected = {"baseColor": (2048, 2048), "normal": (1024, 1024), "orm": (1024, 1024), "emissive": (1024, 1024)}
+          count = 0
+          for material, maps in manifest["materials"].items():
+              for channel, filename in maps.items():
+                  path = root / filename
+                  if not path.is_file():
+                      raise SystemExit(f"missing {material}.{channel}: {path}")
+                  with Image.open(path) as image:
+                      if image.size != expected[channel]:
+                          raise SystemExit(f"wrong size for {filename}: {image.size} != {expected[channel]}")
+                      if image.format != "WEBP":
+                          raise SystemExit(f"wrong format for {filename}: {image.format}")
+                  count += 1
+          if count != 19:
+              raise SystemExit(f"expected 19 WebP maps, got {count}")
+          print(f"validated {count} standalone WebP PBR maps")
+          PY
+
+      - name: Commit generated texture pack
+        run: |
+          if git diff --quiet -- public/assets/textures/pbr; then
+            echo "Texture pack already up to date."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/assets/textures/pbr
+          git commit -m "assets: regenerate standalone HD PBR texture pack"
+          git push origin HEAD:main
