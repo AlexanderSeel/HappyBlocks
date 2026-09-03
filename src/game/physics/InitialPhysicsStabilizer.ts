@@ -12,6 +12,13 @@ function state(scene: Scene): StagedScene {
   if (!value) {
     value = { armed: false, bodies: new Set<PhysicsBody>() };
     stagedScenes.set(scene, value);
+    scene.onBeforePhysicsObservable.add(() => {
+      if (value?.armed) return;
+      for (const body of value?.bodies ?? []) {
+        body.setLinearVelocity(Vector3.Zero());
+        body.setAngularVelocity(Vector3.Zero());
+      }
+    });
     scene.onDisposeObservable.addOnce(() => stagedScenes.delete(scene));
   }
   return value;
@@ -37,11 +44,7 @@ export function armInitialPhysics(scene: Scene): boolean {
   if (staged.armed) return false;
   staged.armed = true;
   for (const body of staged.bodies) {
-    if (body.isDisposed) continue;
     body.setGravityFactor(1);
-    // Havok wakes sleeping bodies when a force is applied; a zero force keeps
-    // the player's collision response intact while ensuring unsupported pieces
-    // immediately begin reacting to gravity.
     body.applyForce(Vector3.Zero(), body.getObjectCenterWorld());
   }
   staged.bodies.clear();
