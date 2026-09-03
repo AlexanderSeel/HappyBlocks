@@ -1,6 +1,7 @@
 import {
   Color3,
   EquiRectangularCubeTexture,
+  Matrix,
   MeshBuilder,
   Scene,
   StandardMaterial,
@@ -33,7 +34,7 @@ export function applySceneEnvironment(
   const texture = new EquiRectangularCubeTexture(url, scene, lowPower ? 512 : 1024);
   texture.name = `environment-${skybox}`;
   texture.coordinatesMode = Texture.SKYBOX_MODE;
-  texture.rotationY = environment?.rotationY ?? 0;
+  texture.setReflectionTextureMatrix(Matrix.RotationY(environment?.rotationY ?? 0));
   texture.level = 1.05;
 
   scene.environmentTexture = texture;
