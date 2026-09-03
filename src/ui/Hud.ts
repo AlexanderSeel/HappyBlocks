@@ -75,8 +75,13 @@ export class Hud {
     }
   }
 
-  showResult(score: number, stars: number, hasNext: boolean): void {
-    this.resultTitle.textContent = "LEVEL COMPLETE";
+  showResult(
+    score: number,
+    stars: number,
+    hasNext: boolean,
+    title = "LEVEL COMPLETE",
+  ): void {
+    this.resultTitle.textContent = title;
     this.resultScore.textContent = `${Math.round(score).toLocaleString()} POINTS`;
     this.resultStars.textContent = [0, 1, 2]
       .map((index) => (index < stars ? "★" : "☆"))
