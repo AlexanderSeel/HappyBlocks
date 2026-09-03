@@ -14,8 +14,10 @@ export function spawnImpactBurst(
   point: Vector3,
   impulse: number,
   kind: ImpactBurstKind,
+  density = 1,
 ): void {
-  const count = Math.max(4, Math.min(12, Math.round(impulse * 0.8)));
+  const baseCount = Math.max(4, Math.min(12, Math.round(impulse * 0.8)));
+  const count = Math.max(2, Math.round(baseCount * Math.max(0.2, density)));
   const material = new StandardMaterial(
     `impact-${kind}-${performance.now().toFixed(0)}`,
     scene,

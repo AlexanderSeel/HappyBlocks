@@ -31,6 +31,12 @@ import type {
   LevelObjective,
   ProtectObjective,
 } from "./levels/types";
+import {
+  applyDeviceProfile,
+  detectDeviceProfile,
+  type DeviceProfile,
+} from "./platform/DeviceProfile";
+import { Haptics } from "./platform/Haptics";
 import { initPhysics } from "./physics/initPhysics";
 import { ProgressStore } from "./progression/ProgressStore";
 import {
@@ -56,7 +62,9 @@ export class HappyBlocksGame {
   private readonly engine: Engine;
   private readonly hud = new Hud();
   private readonly audio = new AudioFx();
+  private readonly haptics = new Haptics();
   private readonly progress = new ProgressStore();
+  private readonly profile: DeviceProfile;
   private readonly debug: PhysicsDebugOverlay;
 
   private scene: Scene | null = null;
@@ -88,10 +96,12 @@ export class HappyBlocksGame {
   private readonly pendingBreaks = new Map<string, PendingBreak>();
 
   constructor(private readonly canvas: HTMLCanvasElement) {
+    this.profile = detectDeviceProfile();
     this.engine = new Engine(canvas, true, {
       preserveDrawingBuffer: false,
       stencil: true,
     });
+    applyDeviceProfile(this.engine, this.profile);
     this.debug = new PhysicsDebugOverlay(this.engine);
 
     window.addEventListener("resize", this.resize);
@@ -180,6 +190,8 @@ export class HappyBlocksGame {
     const pointerInput = camera.inputs.attached.pointers;
     if (pointerInput instanceof ArcRotateCameraPointersInput) {
       pointerInput.buttons = [1, 2];
+      pointerInput.pinchDeltaPercentage = 0.01;
+      pointerInput.useNaturalPinchZoom = this.profile.coarsePointer;
     }
 
     const hemi = new HemisphericLight("sky", new Vector3(0, 1, 0), scene);
@@ -194,8 +206,8 @@ export class HappyBlocksGame {
     key.position = new Vector3(7, 12, -8);
     key.intensity = 2.2;
 
-    const shadows = new ShadowGenerator(2048, key);
-    shadows.usePercentageCloserFiltering = true;
+    const shadows = new ShadowGenerator(this.profile.shadowMapSize, key);
+    shadows.usePercentageCloserFiltering = !this.profile.lowPower;
     shadows.bias = 0.0008;
 
     this.materials = createMaterialLibrary(scene);
@@ -247,7 +259,7 @@ export class HappyBlocksGame {
       this.hud.setResourceLabel("PULLS");
       this.hud.setProjectiles([], "", () => undefined);
       this.hud.setShots(this.removeActionsRemaining);
-      this.hud.setStatus("Click a highlighted removable block to pull it out.");
+      this.hud.setStatus("Tap a removable block to pull it out.");
     } else {
       this.throwController = new ThrowController(
         scene,
@@ -390,7 +402,7 @@ export class HappyBlocksGame {
     const source = entity.source;
 
     if (this.scene) {
-      spawnImpactBurst(this.scene, position, impulse, "dust");
+      spawnImpactBurst(this.scene, position, impulse, "dust", this.profile.effectScale);
     }
     entity.disposeVisual();
     entity.aggregate.dispose();
@@ -435,6 +447,7 @@ export class HappyBlocksGame {
     });
 
     this.audio.play("impactHeavy", Math.min(1.6, 0.7 + impulse / 18));
+    this.haptics.trigger("impactHeavy");
   }
 
   private createMechanisms(): void {
@@ -491,6 +504,7 @@ export class HappyBlocksGame {
     this.refreshProjectileHud();
     this.hud.setStatus("Impact incoming…");
     this.audio.play("throw");
+    this.haptics.trigger("throw");
   }
 
   private onRemoveEntity(entity: RuntimeEntity, point: Vector3): void {
@@ -510,7 +524,13 @@ export class HappyBlocksGame {
     }
 
     if (this.scene) {
-      spawnImpactBurst(this.scene, point, 5, "energy");
+      spawnImpactBurst(
+        this.scene,
+        point,
+        5,
+        "energy",
+        this.profile.effectScale,
+      );
     }
     entity.disposeVisual();
     entity.aggregate.dispose();
@@ -523,6 +543,7 @@ export class HappyBlocksGame {
         : "Last pull used · let the structure settle.",
     );
     this.audio.play("impactLight", 0.8);
+    this.haptics.trigger("remove");
     this.beginSettling();
   }
 
@@ -543,6 +564,7 @@ export class HappyBlocksGame {
           : impulse >= 6
             ? "spark"
             : "dust",
+        this.profile.effectScale,
       );
     }
 
@@ -566,8 +588,12 @@ export class HappyBlocksGame {
 
     if (impulse >= 6) {
       this.audio.play("impactHeavy", Math.min(1.5, 0.55 + impulse / 20));
+      this.haptics.trigger("impactHeavy");
     } else {
       this.audio.play("impactLight", Math.min(1.25, 0.5 + impulse / 10));
+      if (impulse >= 2.5) {
+        this.haptics.trigger("impactLight");
+      }
     }
   }
 
@@ -576,8 +602,11 @@ export class HappyBlocksGame {
       return;
     }
 
-    spawnPulseWave(this.scene, point);
+    if (!this.profile.reducedMotion) {
+      spawnPulseWave(this.scene, point);
+    }
     this.audio.play("pulse");
+    this.haptics.trigger("pulse");
     const radius = 3.1;
     const maxImpulse = 6.5;
 
@@ -683,6 +712,7 @@ export class HappyBlocksGame {
     );
     this.hud.showResult(score, stars, hasNext);
     this.audio.play("goal");
+    this.haptics.trigger("success");
   }
 
   private failLevel(objective: ProtectObjective): void {
@@ -691,6 +721,7 @@ export class HappyBlocksGame {
     this.hud.setStatus(`${message} · Retry the level.`, "fail");
     this.hud.showFailure(message);
     this.audio.play("impactHeavy", 0.65);
+    this.haptics.trigger("fail");
   }
 
   private failedProtectObjective(): ProtectObjective | undefined {

@@ -18,6 +18,9 @@ HappyBlocks is an original browser-first 3D physics puzzle game built with Babyl
 - continuous protected-object failure conditions
 - three-star results, retry and next-level flow
 - sequential level unlocks with best score/stars persisted in localStorage
+- adaptive mobile/low-power render profile and reduced VFX density
+- safe-area/touch-size UI tuning and optional vibration feedback
+- reduced-motion-aware effects
 - F3 physics/performance debug overlay
 - five authored prototype levels
 - JSON level schema
