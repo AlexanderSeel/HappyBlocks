@@ -1,4 +1,4 @@
-import type { HappyBlocksLevel } from "../levels/types";
+import type { HappyBlocksLevel, Vec3Tuple } from "../levels/types";
 import {
   generateStructure,
   type StructureTemplate,
@@ -76,10 +76,12 @@ export function installEditorStructurePalette(): void {
       const selected = level.entities.find(
         (entity) => entity.id === entitySelect?.value,
       );
-      const anchor = selected?.position ?? ([0, 0, 0] as const);
+      const anchor: Vec3Tuple = selected
+        ? [...selected.position]
+        : [0, 0, 0];
       const template = templateSelect.value as StructureTemplate;
       const prefix = uniquePrefix(level, `module-${template}`);
-      const additions = generateStructure({ template, anchor: [...anchor], prefix });
+      const additions = generateStructure({ template, anchor, prefix });
       level.entities.push(...additions);
       jsonText.value = `${JSON.stringify(level, null, 2)}\n`;
       applyButton.click();
