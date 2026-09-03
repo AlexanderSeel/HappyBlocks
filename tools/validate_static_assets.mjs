@@ -147,9 +147,29 @@ for (const filename of levelFiles) {
     for (const tag of entity.tags ?? []) tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
   }
 
+  let projectileActions = 0;
   for (const [assetId, count] of Object.entries(level.inventory ?? {})) {
     if (!runtimeAssets.has(assetId) || !assetId.startsWith("projectile.")) fail(`${label}: inventory key '${assetId}' is not a projectile runtime asset`);
     if (!Number.isInteger(count) || count < 0) fail(`${label}: inventory '${assetId}' must be a non-negative integer`);
+    if (assetId.startsWith("projectile.") && Number.isInteger(count) && count > 0) projectileActions += count;
+  }
+
+  const removeActions = level.actions?.removes ?? 0;
+  if (level.mode === "remove") {
+    if (!Number.isInteger(removeActions) || removeActions <= 0) fail(`${label}: Remove mode requires actions.removes > 0`);
+    if (!level.entities.some((entity) => entity.tags?.includes("removable"))) fail(`${label}: Remove mode requires at least one entity tagged 'removable'`);
+  } else if (level.actions?.removes !== undefined && level.actions.removes !== 0) {
+    fail(`${label}: actions.removes is only valid for Remove mode`);
+  }
+
+  if (level.mode === "scoreAttack") {
+    if (projectileActions <= 0) fail(`${label}: Score Attack requires at least one projectile action`);
+  } else if (level.mode !== "remove" && projectileActions <= 0) {
+    fail(`${label}: ${level.mode} requires at least one projectile action`);
+  }
+
+  if (level.mode !== "scoreAttack" && (!Array.isArray(level.objectives) || level.objectives.length === 0)) {
+    fail(`${label}: ${level.mode} requires at least one objective`);
   }
 
   for (const objective of level.objectives ?? []) {
@@ -177,5 +197,5 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log(`Validated ${runtimeAssets.size} runtime assets, ${levelFiles.length} levels, ${entityCount} level entities, and both PBR profiles.`);
+console.log(`Validated ${runtimeAssets.size} runtime assets, ${levelFiles.length} levels, ${entityCount} level entities, both PBR profiles, and gameplay-mode invariants.`);
 for (const note of notes) console.log(`Note: ${note}`);
