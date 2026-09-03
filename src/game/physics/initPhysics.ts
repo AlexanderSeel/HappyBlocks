@@ -21,4 +21,10 @@ export async function initPhysics(
   const havok = await loadHavok();
   const plugin = new HavokPlugin(true, havok);
   scene.enablePhysics(gravity, plugin);
+
+  // Smaller fixed steps significantly reduce tall-stack jitter/tunneling while
+  // the velocity cap prevents contact explosions from propagating through a
+  // freshly armed structure.
+  scene.getPhysicsEngine()?.setTimeStep(1 / 120);
+  plugin.setVelocityLimits(52, 34);
 }
