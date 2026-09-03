@@ -16,7 +16,8 @@ HappyBlocks is an original browser-first 3D physics puzzle game built with Babyl
 - material-specific friction/restitution including rubber ricochet bumpers
 - collision-driven procedural audio, combo scoring and impact VFX
 - settled-world detection and deterministic reset/rebuild
-- Throw, Chain Reaction, Remove, Protect and Score Attack level data modes
+- Throw, Chain Reaction, Remove, Protect and Score Attack gameplay modes
+- Score Attack consumes the complete shot budget and finishes after the final physics chain settles
 - limited block-pull interaction for Remove levels
 - continuous protected-object failure conditions
 - three-star results, retry and next-level flow
@@ -57,6 +58,8 @@ The in-browser Babylon editor currently supports:
 - reusable modular structure insertion
 - gameplay/physics rules authoring
 - objective creation
+- level identity, arena, gravity and camera authoring
+- score/combo/star-threshold authoring
 
 Editor preview completions intentionally do **not** unlock campaign levels or write progression.
 
@@ -101,11 +104,36 @@ Common gameplay data can be edited without dropping into raw JSON:
 - Protect objective
 - Removed objective
 
+### Level, Arena & Camera authoring
+
+The editor also exposes:
+
+- level ID and display name
+- square/round arena platform
+- gravity X/Y/Z
+- camera target X/Y/Z
+- camera alpha/beta/radius
+- camera minimum/maximum radius
+- one-click camera targeting of the selected entity
+
+### Scoring & Stars authoring
+
+Scoring can be tuned live with:
+
+- base score
+- projectile penalty
+- time penalty per second
+- combo impact window
+- combo multiplier
+- 1/2/3-star thresholds
+
+Star thresholds are normalized to a strictly ascending sequence so exported/generated levels stay compatible with content validation.
+
 The advanced JSON editor remains available for the complete level document.
 
 ## Authored levels
 
-The current campaign/prototype progression contains seven levels:
+The current campaign/prototype progression contains eight levels:
 
 1. First Collapse
 2. Crossfire
@@ -114,8 +142,11 @@ The current campaign/prototype progression contains seven levels:
 5. Guardian
 6. Sky Citadel
 7. Iron Labyrinth
+8. Combo Foundry
 
-**Iron Labyrinth** is the current large stress layout and combines reinforced towers, trusses, breakable gates, real wedge ramps, ricochet stations and a domino path into the goal structure.
+**Iron Labyrinth** is a large chain-reaction stress layout with reinforced towers, trusses, breakable gates, real wedge ramps, ricochet stations and a domino path into the goal structure.
+
+**Combo Foundry** is the first dedicated Score Attack arena. It combines a round arena, four ricochet stations, dual spinners, breakable towers, bridge/truss structures and two domino feeds. Every shot must be spent; the final score is awarded after the last chain settles.
 
 ## Rendering and standalone PBR assets
 
@@ -240,7 +271,7 @@ CI runs content validation, strict TypeScript and the Vite production build for 
 
 ```text
 src/game/                 gameplay, physics, editor and rendering systems
-src/game/editor/          live viewport, level generator, structure generator, rules authoring
+src/game/editor/          live viewport, generators, rules, camera and scoring authoring
 src/game/rendering/       PBR material library and detailed procedural render shells
 public/levels/            authored JSON levels
 public/assets/models/     reusable glTF model pack
