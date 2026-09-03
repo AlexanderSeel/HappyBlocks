@@ -6,6 +6,7 @@
     "platform": "platform.round",
     "gravity": [0, -9.81, 0]
   },
+  "environment": { "skybox": "sunset_foundry", "intensity": 1.2, "rotationY": -0.2 },
   "camera": {
     "target": [0, 1.7, 0.4],
     "alpha": -1.58,
@@ -18,6 +19,11 @@
     "projectile.ball": 6,
     "projectile.heavy": 2,
     "projectile.pulse": 2
+  },
+  "projectileSkins": {
+    "projectile.ball": "chrome",
+    "projectile.heavy": "concrete",
+    "projectile.pulse": "ceramic"
   },
   "entities": [
     {"id":"ramp-front-l","asset":"block.wedge","material":"metal","position":[-2.2,0.5,-5.2],"rotation":[0,1.5708,0],"motion":"STATIC","tags":["ramp"]},
