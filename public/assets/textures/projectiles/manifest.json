@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "ormChannels": {
+    "r": "ambientOcclusion",
+    "g": "roughness",
+    "b": "metallic"
+  },
+  "profiles": {
+    "hd": {
+      "materials": {
+        "chrome": {
+          "baseColor": "chrome_basecolor.webp",
+          "normal": "chrome_normal.webp",
+          "orm": "chrome_orm.webp"
+        },
+        "rubber": {
+          "baseColor": "rubber_basecolor.webp",
+          "normal": "rubber_normal.webp",
+          "orm": "rubber_orm.webp"
+        },
+        "concrete": {
+          "baseColor": "concrete_basecolor.webp",
+          "normal": "concrete_normal.webp",
+          "orm": "concrete_orm.webp"
+        },
+        "ceramic": {
+          "baseColor": "ceramic_basecolor.webp",
+          "normal": "ceramic_normal.webp",
+          "orm": "ceramic_orm.webp"
+        }
+      }
+    },
+    "mobile": {
+      "materials": {
+        "chrome": {
+          "baseColor": "mobile/chrome_basecolor.webp",
+          "normal": "mobile/chrome_normal.webp",
+          "orm": "mobile/chrome_orm.webp"
+        },
+        "rubber": {
+          "baseColor": "mobile/rubber_basecolor.webp",
+          "normal": "mobile/rubber_normal.webp",
+          "orm": "mobile/rubber_orm.webp"
+        },
+        "concrete": {
+          "baseColor": "mobile/concrete_basecolor.webp",
+          "normal": "mobile/concrete_normal.webp",
+          "orm": "mobile/concrete_orm.webp"
+        },
+        "ceramic": {
+          "baseColor": "mobile/ceramic_basecolor.webp",
+          "normal": "mobile/ceramic_normal.webp",
+          "orm": "mobile/ceramic_orm.webp"
+        }
+      }
+    }
+  }
+}

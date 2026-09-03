@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "projection": "equirectangular",
+  "resolution": [
+    2048,
+    1024
+  ],
+  "skies": [
+    {
+      "id": "clear_lab",
+      "file": "clear_lab.webp",
+      "label": "Clear Lab",
+      "environmentIntensity": 1.05
+    },
+    {
+      "id": "sunset_foundry",
+      "file": "sunset_foundry.webp",
+      "label": "Sunset Foundry",
+      "environmentIntensity": 1.15
+    },
+    {
+      "id": "aurora_night",
+      "file": "aurora_night.webp",
+      "label": "Aurora Night",
+      "environmentIntensity": 0.95
+    },
+    {
+      "id": "deep_space",
+      "file": "deep_space.webp",
+      "label": "Deep Space",
+      "environmentIntensity": 0.8
+    },
+    {
+      "id": "stormfront",
+      "file": "stormfront.webp",
+      "label": "Stormfront",
+      "environmentIntensity": 0.9
+    },
+    {
+      "id": "neon_twilight",
+      "file": "neon_twilight.webp",
+      "label": "Neon Twilight",
+      "environmentIntensity": 1.0
+    }
+  ]
+}
