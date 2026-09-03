@@ -1,6 +1,13 @@
 export type Vec3Tuple = [number, number, number];
 export type MotionType = "STATIC" | "DYNAMIC";
 export type LevelMode = "throw" | "chainReaction" | "remove" | "protect" | "scoreAttack";
+export type ProjectileSurface = "chrome" | "rubber" | "concrete" | "ceramic";
+
+export interface LevelEnvironment {
+  skybox?: string;
+  intensity?: number;
+  rotationY?: number;
+}
 
 export interface LevelEntity {
   id: string;
@@ -54,6 +61,7 @@ export interface HappyBlocksLevel {
   name: string;
   mode: LevelMode;
   arena: { platform: string; gravity: Vec3Tuple };
+  environment?: LevelEnvironment;
   camera: {
     target: Vec3Tuple;
     alpha: number;
@@ -63,6 +71,7 @@ export interface HappyBlocksLevel {
     maxRadius?: number;
   };
   inventory: Record<string, number>;
+  projectileSkins?: Record<string, ProjectileSurface>;
   actions?: { removes?: number };
   entities: LevelEntity[];
   objectives: LevelObjective[];
