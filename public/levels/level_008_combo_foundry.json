@@ -1,0 +1,92 @@
+{
+  "id": "008-combo-foundry",
+  "name": "Combo Foundry",
+  "mode": "scoreAttack",
+  "arena": {
+    "platform": "platform.round",
+    "gravity": [0, -9.81, 0]
+  },
+  "camera": {
+    "target": [0, 1.7, 0.4],
+    "alpha": -1.58,
+    "beta": 1.02,
+    "radius": 13.5,
+    "minRadius": 2,
+    "maxRadius": 38
+  },
+  "inventory": {
+    "projectile.ball": 6,
+    "projectile.heavy": 2,
+    "projectile.pulse": 2
+  },
+  "entities": [
+    {"id":"ramp-front-l","asset":"block.wedge","material":"metal","position":[-2.2,0.5,-5.2],"rotation":[0,1.5708,0],"motion":"STATIC","tags":["ramp"]},
+    {"id":"ramp-front-r","asset":"block.wedge","material":"metal","position":[2.2,0.5,-5.2],"rotation":[0,-1.5708,0],"motion":"STATIC","tags":["ramp"]},
+    {"id":"bumper-front","asset":"bumper.round","material":"rubber","position":[0,0.22,-3.9],"motion":"STATIC","tags":["bumper"]},
+    {"id":"bumper-left","asset":"bumper.round","material":"rubber","position":[-4.2,0.22,-0.8],"motion":"STATIC","tags":["bumper"]},
+    {"id":"bumper-right","asset":"bumper.round","material":"rubber","position":[4.2,0.22,-0.8],"motion":"STATIC","tags":["bumper"]},
+    {"id":"bumper-rear","asset":"bumper.round","material":"rubber","position":[0,0.22,4.6],"motion":"STATIC","tags":["bumper"]},
+
+    {"id":"spinner-left","asset":"spinner.cross","material":"metal","position":[-2.8,1.3,1.1],"motion":"DYNAMIC","tags":["mechanism"]},
+    {"id":"spinner-right","asset":"spinner.cross","material":"metal","position":[2.8,1.3,1.1],"motion":"DYNAMIC","tags":["mechanism"]},
+
+    {"id":"tower-a-p1","asset":"block.pillar","material":"stone","position":[-2.9,1.05,-2.4],"motion":"DYNAMIC","tags":["score-structure"]},
+    {"id":"tower-a-p2","asset":"block.pillar","material":"ceramic_cyan","position":[-1.8,1.05,-2.4],"motion":"DYNAMIC","tags":["score-structure"]},
+    {"id":"tower-a-deck","asset":"block.plank","material":"wood","position":[-2.35,2.2,-2.4],"motion":"DYNAMIC","tags":["score-structure"]},
+    {"id":"tower-a-c1","asset":"block.cube","material":"ceramic_amber","position":[-2.9,2.85,-2.4],"motion":"DYNAMIC","tags":["score-structure"]},
+    {"id":"tower-a-c2","asset":"block.cube","material":"stone","position":[-1.8,2.85,-2.4],"motion":"DYNAMIC","tags":["score-structure"]},
+    {"id":"tower-a-roof","asset":"block.slab","material":"metal","position":[-2.35,3.52,-2.4],"motion":"DYNAMIC","tags":["score-structure"]},
+    {"id":"tower-a-break","asset":"breakable.column","material":"ceramic_cyan","position":[-2.35,4.8,-2.4],"motion":"DYNAMIC","tags":["score-structure","breakable"],"breakThreshold":4.1},
+
+    {"id":"tower-b-p1","asset":"block.pillar","material":"stone","position":[1.8,1.05,-2.4],"motion":"DYNAMIC","tags":["score-structure"]},
+    {"id":"tower-b-p2","asset":"block.pillar","material":"ceramic_amber","position":[2.9,1.05,-2.4],"motion":"DYNAMIC","tags":["score-structure"]},
+    {"id":"tower-b-deck","asset":"block.plank","material":"wood","position":[2.35,2.2,-2.4],"motion":"DYNAMIC","tags":["score-structure"]},
+    {"id":"tower-b-c1","asset":"block.cube","material":"stone","position":[1.8,2.85,-2.4],"motion":"DYNAMIC","tags":["score-structure"]},
+    {"id":"tower-b-c2","asset":"block.cube","material":"ceramic_cyan","position":[2.9,2.85,-2.4],"motion":"DYNAMIC","tags":["score-structure"]},
+    {"id":"tower-b-roof","asset":"block.slab","material":"metal","position":[2.35,3.52,-2.4],"motion":"DYNAMIC","tags":["score-structure"]},
+    {"id":"tower-b-break","asset":"breakable.column","material":"ceramic_amber","position":[2.35,4.8,-2.4],"motion":"DYNAMIC","tags":["score-structure","breakable"],"breakThreshold":4.1},
+
+    {"id":"bridge-left","asset":"block.slab","material":"metal","position":[-1.25,1.9,0.3],"motion":"DYNAMIC","tags":["score-structure","bridge"]},
+    {"id":"bridge-right","asset":"block.slab","material":"metal","position":[1.25,1.9,0.3],"motion":"DYNAMIC","tags":["score-structure","bridge"]},
+    {"id":"bridge-pillar-l1","asset":"block.pillar","material":"stone","position":[-2.2,1.05,0.3],"motion":"DYNAMIC","tags":["score-structure","bridge"]},
+    {"id":"bridge-pillar-l2","asset":"block.pillar","material":"ceramic_violet","position":[-0.7,1.05,0.3],"motion":"DYNAMIC","tags":["score-structure","bridge"]},
+    {"id":"bridge-pillar-r1","asset":"block.pillar","material":"ceramic_violet","position":[0.7,1.05,0.3],"motion":"DYNAMIC","tags":["score-structure","bridge"]},
+    {"id":"bridge-pillar-r2","asset":"block.pillar","material":"stone","position":[2.2,1.05,0.3],"motion":"DYNAMIC","tags":["score-structure","bridge"]},
+    {"id":"bridge-truss-l","asset":"block.rod","material":"ceramic_cyan","position":[-1.45,2.8,0.3],"rotation":[0,0,0.68],"motion":"DYNAMIC","tags":["score-structure","truss"]},
+    {"id":"bridge-truss-r","asset":"block.rod","material":"ceramic_amber","position":[1.45,2.8,0.3],"rotation":[0,0,-0.68],"motion":"DYNAMIC","tags":["score-structure","truss"]},
+    {"id":"bridge-top","asset":"block.plank","material":"wood","position":[0,3.45,0.3],"motion":"DYNAMIC","tags":["score-structure","bridge"]},
+
+    {"id":"rear-frame-l","asset":"block.pillar","material":"stone","position":[-1.8,1.05,3.5],"motion":"DYNAMIC","tags":["score-structure","rear"]},
+    {"id":"rear-frame-r","asset":"block.pillar","material":"stone","position":[1.8,1.05,3.5],"motion":"DYNAMIC","tags":["score-structure","rear"]},
+    {"id":"rear-frame-top","asset":"block.plank","material":"wood","position":[0,2.2,3.5],"motion":"DYNAMIC","tags":["score-structure","rear"]},
+    {"id":"rear-break-l","asset":"breakable.column","material":"ceramic_cyan","position":[-0.65,1.2,3.5],"motion":"DYNAMIC","tags":["score-structure","breakable"],"breakThreshold":3.8},
+    {"id":"rear-break-r","asset":"breakable.column","material":"ceramic_amber","position":[0.65,1.2,3.5],"motion":"DYNAMIC","tags":["score-structure","breakable"],"breakThreshold":3.8},
+    {"id":"rear-core","asset":"goal.energyCore","material":"energy","position":[0,0.5,3.5],"motion":"DYNAMIC","tags":["score-structure","core"]},
+
+    {"id":"domino-l1","asset":"block.rod","material":"ceramic_cyan","position":[-4.3,1.35,2.2],"motion":"DYNAMIC","tags":["domino"]},
+    {"id":"domino-l2","asset":"block.rod","material":"ceramic_amber","position":[-3.55,1.35,2.65],"rotation":[0,0.22,0],"motion":"DYNAMIC","tags":["domino"]},
+    {"id":"domino-l3","asset":"block.rod","material":"ceramic_violet","position":[-2.8,1.35,3.05],"rotation":[0,0.35,0],"motion":"DYNAMIC","tags":["domino"]},
+    {"id":"domino-l4","asset":"block.rod","material":"ceramic_cyan","position":[-2.0,1.35,3.35],"rotation":[0,0.45,0],"motion":"DYNAMIC","tags":["domino"]},
+
+    {"id":"domino-r1","asset":"block.rod","material":"ceramic_amber","position":[4.3,1.35,2.2],"motion":"DYNAMIC","tags":["domino"]},
+    {"id":"domino-r2","asset":"block.rod","material":"ceramic_cyan","position":[3.55,1.35,2.65],"rotation":[0,-0.22,0],"motion":"DYNAMIC","tags":["domino"]},
+    {"id":"domino-r3","asset":"block.rod","material":"ceramic_violet","position":[2.8,1.35,3.05],"rotation":[0,-0.35,0],"motion":"DYNAMIC","tags":["domino"]},
+    {"id":"domino-r4","asset":"block.rod","material":"ceramic_amber","position":[2.0,1.35,3.35],"rotation":[0,-0.45,0],"motion":"DYNAMIC","tags":["domino"]},
+
+    {"id":"center-c1","asset":"block.cylinder","material":"metal","position":[-0.7,0.5,-1.0],"motion":"DYNAMIC","tags":["score-structure","center"]},
+    {"id":"center-c2","asset":"block.cylinder","material":"metal","position":[0.7,0.5,-1.0],"motion":"DYNAMIC","tags":["score-structure","center"]},
+    {"id":"center-plank","asset":"block.plank","material":"wood","position":[0,1.18,-1.0],"motion":"DYNAMIC","tags":["score-structure","center"]},
+    {"id":"center-stack-1","asset":"block.cube","material":"ceramic_cyan","position":[-0.7,1.72,-1.0],"motion":"DYNAMIC","tags":["score-structure","center"]},
+    {"id":"center-stack-2","asset":"block.cube","material":"ceramic_amber","position":[0.7,1.72,-1.0],"motion":"DYNAMIC","tags":["score-structure","center"]},
+    {"id":"center-roof","asset":"block.slab","material":"metal","position":[0,2.38,-1.0],"motion":"DYNAMIC","tags":["score-structure","center"]}
+  ],
+  "objectives": [],
+  "scoring": {
+    "base": 1900,
+    "projectilePenalty": 30,
+    "timePenaltyPerSecond": 2,
+    "impactComboWindowMs": 1100,
+    "comboMultiplier": 1.28,
+    "starThresholds": [1500, 2200, 3000]
+  }
+}
