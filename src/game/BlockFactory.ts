@@ -9,6 +9,7 @@ import {
   Vector3,
 } from "@babylonjs/core";
 import { ASSETS } from "./AssetDefinitions";
+import { bindEditorSelection } from "./editor/editorEvents";
 import type { LevelEntity } from "./levels/types";
 import { getPhysicsSurface } from "./physics/PhysicsMaterials";
 import type { MaterialLibrary } from "./rendering/materials";
@@ -90,6 +91,26 @@ export class BlockFactory {
       mesh.isVisible = false;
     }
 
+    let editorBindingActive = true;
+    const unbindEditorSelection = bindEditorSelection((selectedId) => {
+      const selected = selectedId === entity.id;
+      if (visual?.meshes.length) {
+        visual.meshes.forEach((visualMesh) => {
+          visualMesh.showBoundingBox = selected;
+        });
+      } else {
+        mesh.showBoundingBox = selected;
+      }
+    });
+    const releaseEditorBinding = (): void => {
+      if (!editorBindingActive) {
+        return;
+      }
+      editorBindingActive = false;
+      unbindEditorSelection();
+    };
+    this.scene.onDisposeObservable.addOnce(releaseEditorBinding);
+
     const dynamic = entity.motion === "DYNAMIC";
     const surface = getPhysicsSurface(entity.asset, materialId);
     const aggregate = new PhysicsAggregate(
@@ -119,7 +140,10 @@ export class BlockFactory {
       source: entity,
       dynamic,
       visualMeshes: visual?.meshes ?? [],
-      disposeVisual: visual?.dispose ?? (() => undefined),
+      disposeVisual: () => {
+        releaseEditorBinding();
+        visual?.dispose();
+      },
       broken: false,
     };
   }

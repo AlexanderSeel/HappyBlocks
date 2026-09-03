@@ -1,5 +1,6 @@
-import type { HappyBlocksLevel, LevelEntity, LevelMode } from "../levels/types";
 import { ASSETS } from "../AssetDefinitions";
+import type { HappyBlocksLevel, LevelEntity, LevelMode } from "../levels/types";
+import { notifyEditorSelection } from "./editorEvents";
 
 export interface LevelEditorCallbacks {
   onPreview: (level: HappyBlocksLevel) => Promise<void>;
@@ -24,11 +25,31 @@ const LEVEL_MODES = new Set<LevelMode>([
   "protect",
   "scoreAttack",
 ]);
+const MATERIAL_IDS = [
+  "wood",
+  "stone",
+  "metal",
+  "rubber",
+  "ceramic",
+  "ceramic_cyan",
+  "ceramic_amber",
+  "ceramic_violet",
+  "energy",
+] as const;
+const EDITOR_ASSET_IDS = Object.keys(ASSETS)
+  .filter(
+    (assetId) =>
+      !assetId.startsWith("projectile.") && !assetId.startsWith("platform."),
+  )
+  .sort();
 
 export class LevelEditorPanel {
   private readonly toggleButton: HTMLButtonElement;
   private readonly panel: HTMLElement;
   private readonly entitySelect: HTMLSelectElement;
+  private readonly assetSelect: HTMLSelectElement;
+  private readonly materialSelect: HTMLSelectElement;
+  private readonly motionSelect: HTMLSelectElement;
   private readonly jsonText: HTMLTextAreaElement;
   private readonly fileInput: HTMLInputElement;
   private readonly status: HTMLElement;
@@ -60,6 +81,16 @@ export class LevelEditorPanel {
       </header>
       <div class="level-editor__section">
         <label>Entity<select id="editor-entity"></select></label>
+        <div class="level-editor__properties">
+          <label>Asset<select id="editor-asset"></select></label>
+          <label>Material<select id="editor-material"></select></label>
+          <label>Motion<select id="editor-motion"><option value="DYNAMIC">Dynamic</option><option value="STATIC">Static</option></select></label>
+        </div>
+        <div class="level-editor__entity-actions">
+          <button type="button" data-editor-action="add">+ Add</button>
+          <button type="button" data-editor-action="duplicate">Duplicate</button>
+          <button type="button" data-editor-action="delete" class="level-editor__danger">Delete</button>
+        </div>
         <div class="level-editor__transform">
           <fieldset><legend>Position</legend><label>X<input id="editor-px" type="number" step="0.05"></label><label>Y<input id="editor-py" type="number" step="0.05"></label><label>Z<input id="editor-pz" type="number" step="0.05"></label></fieldset>
           <fieldset><legend>Rotation · rad</legend><label>X<input id="editor-rx" type="number" step="0.05"></label><label>Y<input id="editor-ry" type="number" step="0.05"></label><label>Z<input id="editor-rz" type="number" step="0.05"></label></fieldset>
@@ -77,11 +108,14 @@ export class LevelEditorPanel {
         <button type="button" data-editor-action="restore">Restore</button>
       </div>
       <input id="editor-file" type="file" accept="application/json,.json" hidden>
-      <div id="editor-status" class="level-editor__status">Edit transforms or JSON, then Preview to rebuild physics.</div>
+      <div id="editor-status" class="level-editor__status">Edit the level, then Preview to rebuild physics.</div>
     `;
     document.body.append(this.panel);
 
     this.entitySelect = this.req("editor-entity") as HTMLSelectElement;
+    this.assetSelect = this.req("editor-asset") as HTMLSelectElement;
+    this.materialSelect = this.req("editor-material") as HTMLSelectElement;
+    this.motionSelect = this.req("editor-motion") as HTMLSelectElement;
     this.jsonText = this.req("editor-json") as HTMLTextAreaElement;
     this.fileInput = this.req("editor-file") as HTMLInputElement;
     this.status = this.req("editor-status");
@@ -97,8 +131,12 @@ export class LevelEditorPanel {
       sz: this.input("editor-sz"),
     };
 
+    this.populatePalette();
     this.toggleButton.addEventListener("click", this.toggle);
-    this.entitySelect.addEventListener("change", this.syncTransformInputs);
+    this.entitySelect.addEventListener("change", this.syncEntityEditor);
+    this.assetSelect.addEventListener("change", this.onPropertiesChanged);
+    this.materialSelect.addEventListener("change", this.onPropertiesChanged);
+    this.motionSelect.addEventListener("change", this.onPropertiesChanged);
     Object.values(this.transformInputs).forEach((input) =>
       input.addEventListener("change", this.onTransformChanged),
     );
@@ -119,21 +157,29 @@ export class LevelEditorPanel {
   }
 
   readonly toggle = (): void => {
-    this.panel.hidden = !this.panel.hidden;
-    this.toggleButton.dataset.active = String(!this.panel.hidden);
-    if (!this.panel.hidden && this.working) {
+    const opening = this.panel.hidden;
+    this.panel.hidden = !opening;
+    this.toggleButton.dataset.active = String(opening);
+    if (opening && this.working) {
       this.rebuildEntityOptions(this.entitySelect.value);
+    } else if (!opening) {
+      notifyEditorSelection(null);
     }
   };
 
   close(): void {
     this.panel.hidden = true;
     this.toggleButton.dataset.active = "false";
+    notifyEditorSelection(null);
   }
 
   dispose(): void {
+    notifyEditorSelection(null);
     this.toggleButton.removeEventListener("click", this.toggle);
-    this.entitySelect.removeEventListener("change", this.syncTransformInputs);
+    this.entitySelect.removeEventListener("change", this.syncEntityEditor);
+    this.assetSelect.removeEventListener("change", this.onPropertiesChanged);
+    this.materialSelect.removeEventListener("change", this.onPropertiesChanged);
+    this.motionSelect.removeEventListener("change", this.onPropertiesChanged);
     Object.values(this.transformInputs).forEach((input) =>
       input.removeEventListener("change", this.onTransformChanged),
     );
@@ -141,6 +187,21 @@ export class LevelEditorPanel {
     this.fileInput.removeEventListener("change", this.onImportFile);
     this.toggleButton.remove();
     this.panel.remove();
+  }
+
+  private populatePalette(): void {
+    for (const assetId of EDITOR_ASSET_IDS) {
+      const option = document.createElement("option");
+      option.value = assetId;
+      option.textContent = assetId;
+      this.assetSelect.append(option);
+    }
+    for (const materialId of MATERIAL_IDS) {
+      const option = document.createElement("option");
+      option.value = materialId;
+      option.textContent = materialId;
+      this.materialSelect.append(option);
+    }
   }
 
   private readonly onPanelClick = (event: MouseEvent): void => {
@@ -164,6 +225,12 @@ export class LevelEditorPanel {
       this.exportJson();
     } else if (action === "restore") {
       void this.restore();
+    } else if (action === "add") {
+      this.addEntity();
+    } else if (action === "duplicate") {
+      this.duplicateEntity();
+    } else if (action === "delete") {
+      this.deleteEntity();
     }
   };
 
@@ -183,28 +250,49 @@ export class LevelEditorPanel {
     this.fileInput.value = "";
   };
 
-  private readonly syncTransformInputs = (): void => {
+  private readonly syncEntityEditor = (): void => {
     const entity = this.selectedEntity();
     const disabled = !entity;
     Object.values(this.transformInputs).forEach((input) => {
       input.disabled = disabled;
     });
+    this.assetSelect.disabled = disabled;
+    this.materialSelect.disabled = disabled;
+    this.motionSelect.disabled = disabled;
+
     if (!entity) {
+      notifyEditorSelection(null);
       return;
     }
 
+    this.assetSelect.value = entity.asset;
+    this.materialSelect.value = entity.material ?? this.defaultMaterial(entity.asset);
+    this.motionSelect.value = entity.motion;
     const [px, py, pz] = entity.position;
     const [rx, ry, rz] = entity.rotation ?? [0, 0, 0];
     const [sx, sy, sz] = entity.scale ?? [1, 1, 1];
-    Object.assign(this.transformInputs.px, { valueAsNumber: px });
-    Object.assign(this.transformInputs.py, { valueAsNumber: py });
-    Object.assign(this.transformInputs.pz, { valueAsNumber: pz });
-    Object.assign(this.transformInputs.rx, { valueAsNumber: rx });
-    Object.assign(this.transformInputs.ry, { valueAsNumber: ry });
-    Object.assign(this.transformInputs.rz, { valueAsNumber: rz });
-    Object.assign(this.transformInputs.sx, { valueAsNumber: sx });
-    Object.assign(this.transformInputs.sy, { valueAsNumber: sy });
-    Object.assign(this.transformInputs.sz, { valueAsNumber: sz });
+    this.transformInputs.px.valueAsNumber = px;
+    this.transformInputs.py.valueAsNumber = py;
+    this.transformInputs.pz.valueAsNumber = pz;
+    this.transformInputs.rx.valueAsNumber = rx;
+    this.transformInputs.ry.valueAsNumber = ry;
+    this.transformInputs.rz.valueAsNumber = rz;
+    this.transformInputs.sx.valueAsNumber = sx;
+    this.transformInputs.sy.valueAsNumber = sy;
+    this.transformInputs.sz.valueAsNumber = sz;
+    notifyEditorSelection(entity.id);
+  };
+
+  private readonly onPropertiesChanged = (): void => {
+    const entity = this.selectedEntity();
+    if (!entity) {
+      return;
+    }
+    entity.asset = this.assetSelect.value;
+    entity.material = this.materialSelect.value;
+    entity.motion = this.motionSelect.value === "STATIC" ? "STATIC" : "DYNAMIC";
+    this.syncJsonFromWorking();
+    this.setStatus("Entity properties changed · Preview to rebuild physics.", "normal");
   };
 
   private readonly onTransformChanged = (): void => {
@@ -230,15 +318,64 @@ export class LevelEditorPanel {
       Math.max(0.05, this.number("sy", scale[1])),
       Math.max(0.05, this.number("sz", scale[2])),
     ];
-    this.jsonText.value = this.format(this.working!);
+    this.syncJsonFromWorking();
     this.setStatus("Transform changed · Preview to rebuild the physics scene.", "normal");
   };
+
+  private addEntity(): void {
+    if (!this.working) {
+      return;
+    }
+    const asset = this.assetSelect.value || EDITOR_ASSET_IDS[0];
+    const entity: LevelEntity = {
+      id: this.uniqueId(asset.replaceAll(".", "-")),
+      asset,
+      material: this.materialSelect.value || this.defaultMaterial(asset),
+      position: [0, 1, 0],
+      rotation: [0, 0, 0],
+      scale: [1, 1, 1],
+      motion: this.motionSelect.value === "STATIC" ? "STATIC" : "DYNAMIC",
+      tags: [],
+    };
+    this.working.entities.push(entity);
+    this.syncJsonFromWorking();
+    this.rebuildEntityOptions(entity.id);
+    this.setStatus(`Added ${entity.id}. Preview to instantiate it.`, "success");
+  }
+
+  private duplicateEntity(): void {
+    const source = this.selectedEntity();
+    if (!source || !this.working) {
+      return;
+    }
+    const copy = this.cloneEntity(source);
+    copy.id = this.uniqueId(`${source.id}-copy`);
+    copy.position = [source.position[0] + 0.35, source.position[1], source.position[2]];
+    this.working.entities.push(copy);
+    this.syncJsonFromWorking();
+    this.rebuildEntityOptions(copy.id);
+    this.setStatus(`Duplicated ${source.id} as ${copy.id}.`, "success");
+  }
+
+  private deleteEntity(): void {
+    const entity = this.selectedEntity();
+    if (!entity || !this.working) {
+      return;
+    }
+    const index = this.working.entities.indexOf(entity);
+    this.working.entities.splice(index, 1);
+    notifyEditorSelection(null);
+    this.syncJsonFromWorking();
+    const next = this.working.entities[Math.min(index, this.working.entities.length - 1)];
+    this.rebuildEntityOptions(next?.id);
+    this.setStatus(`Deleted ${entity.id}. Preview to rebuild the scene.`, "success");
+  }
 
   private parseJson(): boolean {
     try {
       const level = this.parseAndValidate(this.jsonText.value);
       this.working = this.clone(level);
-      this.jsonText.value = this.format(this.working);
+      this.syncJsonFromWorking();
       this.rebuildEntityOptions(this.entitySelect.value);
       this.setStatus("JSON parsed successfully.", "success");
       return true;
@@ -255,6 +392,7 @@ export class LevelEditorPanel {
     try {
       this.setStatus("Rebuilding physics preview…", "normal");
       await this.callbacks.onPreview(this.clone(this.working));
+      notifyEditorSelection(this.entitySelect.value || null);
       this.setStatus("Preview active · editor results do not unlock progression.", "success");
     } catch (error) {
       this.setError(error);
@@ -267,7 +405,7 @@ export class LevelEditorPanel {
       await this.callbacks.onRestore();
       if (this.source) {
         this.working = this.clone(this.source);
-        this.jsonText.value = this.format(this.working);
+        this.syncJsonFromWorking();
         this.rebuildEntityOptions();
       }
       this.setStatus("Authored level restored.", "success");
@@ -304,13 +442,34 @@ export class LevelEditorPanel {
     if (preferredId && entities.some((entity) => entity.id === preferredId)) {
       this.entitySelect.value = preferredId;
     }
-    this.syncTransformInputs();
+    this.syncEntityEditor();
   }
 
   private selectedEntity(): LevelEntity | undefined {
     return this.working?.entities.find(
       (entity) => entity.id === this.entitySelect.value,
     );
+  }
+
+  private uniqueId(prefix: string): string {
+    const ids = new Set(this.working?.entities.map((entity) => entity.id) ?? []);
+    if (!ids.has(prefix)) {
+      return prefix;
+    }
+    let index = 2;
+    while (ids.has(`${prefix}-${index}`)) {
+      index += 1;
+    }
+    return `${prefix}-${index}`;
+  }
+
+  private defaultMaterial(assetId: string): string {
+    if (assetId.startsWith("goal.")) return "energy";
+    if (assetId.startsWith("target.")) return "ceramic_violet";
+    if (assetId.startsWith("bumper.")) return "rubber";
+    if (assetId.startsWith("spinner.")) return "metal";
+    if (assetId.startsWith("breakable.")) return "ceramic_cyan";
+    return "wood";
   }
 
   private parseAndValidate(text: string): HappyBlocksLevel {
@@ -328,12 +487,27 @@ export class LevelEditorPanel {
     ) {
       throw new Error("JSON is not a valid HappyBlocks level document.");
     }
+    const ids = new Set<string>();
     for (const entity of parsed.entities) {
       if (!entity.id || !entity.asset || !ASSETS[entity.asset]) {
         throw new Error(`Unknown or incomplete entity '${entity.id ?? "?"}'.`);
       }
+      if (ids.has(entity.id)) {
+        throw new Error(`Duplicate entity id '${entity.id}'.`);
+      }
+      ids.add(entity.id);
     }
     return parsed as HappyBlocksLevel;
+  }
+
+  private syncJsonFromWorking(): void {
+    if (this.working) {
+      this.jsonText.value = this.format(this.working);
+    }
+  }
+
+  private cloneEntity(entity: LevelEntity): LevelEntity {
+    return JSON.parse(JSON.stringify(entity)) as LevelEntity;
   }
 
   private number(key: TransformInputKey, fallback: number): number {

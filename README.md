@@ -22,7 +22,7 @@ HappyBlocks is an original browser-first 3D physics puzzle game built with Babyl
 - safe-area/touch-size UI tuning and optional vibration feedback
 - reduced-motion-aware effects
 - F3 physics/performance debug overlay
-- in-browser level editor foundation with entity transform controls, JSON import/export and deterministic physics Preview/Restore
+- in-browser level editor with selection highlighting, entity transform/property controls, create/duplicate/delete, JSON import/export and deterministic physics Preview/Restore
 - five authored prototype levels
 - JSON level schema
 - original low-poly glTF prototype model pack
@@ -57,6 +57,6 @@ npm run build
 
 ### Level editor
 
-Open **Editor** from the HUD or press `Ctrl/Cmd + E`. Select an entity to edit position, rotation and scale, or edit the complete level JSON directly. **Preview** rebuilds the Babylon/Havok scene from the working JSON. Preview completions intentionally do not unlock levels or write progression. **Restore** reloads the authored level. Import and Export use standalone HappyBlocks level JSON files.
+Open **Editor** from the HUD or press `Ctrl/Cmd + E`. The editor can select/highlight entities, change asset/material/motion and transforms, create/duplicate/delete entities, or edit the complete level JSON directly. **Preview** rebuilds the Babylon/Havok scene from the working JSON. Preview completions intentionally do not unlock levels or write progression. **Restore** reloads the authored level. Import and Export use standalone HappyBlocks level JSON files.
 
 See `PLAN.md` for architecture and roadmap.

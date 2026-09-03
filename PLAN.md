@@ -32,34 +32,28 @@ Build a browser-first 3D physics puzzle game centered on tactile block structure
 
 ## Vertical slice — implemented
 - [x] Vite + strict TypeScript application.
-- [x] Babylon.js scene/camera/light foundation.
-- [x] Havok Physics V2 initialization.
-- [x] Data-driven level loader and JSON schema.
-- [x] Canonical asset/collider registry and physics-backed entity factory.
+- [x] Babylon.js scene/camera/light foundation and Havok Physics V2.
+- [x] Data-driven level loader/schema and canonical asset/collider registry.
 - [x] glTF visual cache separated from primitive Havok proxies.
-- [x] Square/round arena physics generated from level configuration.
+- [x] Square/round arenas, surface physics and high-bounce bumpers.
 - [x] Drag/release throw input and ballistic trajectory preview.
 - [x] Standard/heavy/pulse projectiles and radial pulse impulse.
-- [x] Material-specific friction/restitution and high-bounce bumpers.
-- [x] Collision impulse score bonuses, combo windows, audio and VFX.
+- [x] Collision score combos, procedural audio and impact VFX.
 - [x] Velocity-based settled-world detection.
 - [x] Authored breakable columns and hinged spinner mechanisms.
 - [x] Three-star results, retry and next-level flow.
-- [x] Remove mode with limited click/tap block pulls and `removed` objectives.
+- [x] Remove mode with limited block pulls and `removed` objectives.
 - [x] Protect conditions with failure state and retry flow.
 - [x] Local progression persistence, best score/stars and sequential unlock rules.
-- [x] Adaptive mobile/low-power hardware scaling, shadow budget and VFX density.
-- [x] Safe-area/touch-size UI and optional vibration feedback.
-- [x] Reduced-motion-aware visual effects.
+- [x] Adaptive mobile performance, safe-area/touch UI, vibration and reduced-motion behavior.
 - [x] F3 developer physics/performance overlay.
-- [x] Level editor foundation: transform form, full JSON editing, import/export and deterministic Preview/Restore.
-- [x] Five progressive prototype levels.
-- [x] Original prototype model/UI/texture/effect asset library.
+- [x] Level editor: selected-entity highlight, asset/material/motion palette, transforms, create/duplicate/delete, full JSON editing, import/export and deterministic Preview/Restore.
+- [x] Five progressive prototype levels and original prototype asset library.
 - [x] GitHub Actions typecheck/build workflow.
 
 ## Next implementation block
-1. Add Babylon transform gizmos, editor selection highlighting and pause/isolation mode.
-2. Add entity create/duplicate/delete and asset/material palette to the editor.
+1. Add Babylon transform gizmos with editor pause/isolation mode and sync back to JSON transforms.
+2. Add tags/objective/inventory editors and level metadata forms.
 3. Add broader authored level pack with progressive mechanics and world grouping.
 4. Add production audio assets and adaptive mix snapshots.
 5. Add user-facing accessibility/settings panel for camera motion, effects, vibration and input sensitivity.
