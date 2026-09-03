@@ -14,6 +14,7 @@ import {
   Vector3,
 } from "@babylonjs/core";
 import { ASSETS } from "../AssetDefinitions";
+import { getActiveProjectileSurface } from "../levels/LevelPresentation";
 import type { ProjectileSurface } from "../levels/types";
 import { armInitialPhysics } from "../physics/InitialPhysicsStabilizer";
 import { createDetailedVisual } from "../rendering/DetailedVisualFactory";
@@ -23,7 +24,7 @@ import type { VisualAssetLibrary } from "../rendering/VisualAssetLibrary";
 export interface ThrowEvents {
   canThrow: () => boolean;
   getProjectileAsset: () => string;
-  getProjectileSurface: (assetId: string) => ProjectileSurface;
+  getProjectileSurface?: (assetId: string) => ProjectileSurface;
   onAim: (power: number) => void;
   onThrow: (assetId: string) => void;
   onImpact: (assetId: string, impulse: number, point: Vector3) => void;
@@ -94,6 +95,8 @@ export class ThrowController {
     if (camera) {
       camera.lowerRadiusLimit = Math.min(camera.lowerRadiusLimit ?? 99, 1.35);
       camera.upperRadiusLimit = Math.max(camera.upperRadiusLimit ?? 0, 42);
+      camera.lowerBetaLimit = 0.16;
+      camera.upperBetaLimit = Math.PI - 0.16;
       camera.panningSensibility = 75;
       camera.wheelPrecision = 38;
     }
@@ -292,7 +295,7 @@ export class ThrowController {
       this.launchOrigin(velocity.clone().normalize(), definition.radius ?? 0.4),
     );
 
-    const surface = this.events.getProjectileSurface(assetId);
+    const surface = this.events.getProjectileSurface?.(assetId) ?? getActiveProjectileSurface(assetId);
     const material =
       this.materials[`projectile_${surface}`] ??
       this.materials.projectile_chrome ??
