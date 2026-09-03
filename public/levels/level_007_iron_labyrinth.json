@@ -1,0 +1,81 @@
+{
+  "id": "007-iron-labyrinth",
+  "name": "Iron Labyrinth",
+  "mode": "chainReaction",
+  "arena": { "platform": "platform.square", "gravity": [0, -9.81, 0] },
+  "camera": { "target": [0, 2.1, 0], "alpha": -1.5, "beta": 1.05, "radius": 13, "minRadius": 1.4, "maxRadius": 38 },
+  "inventory": { "projectile.ball": 4, "projectile.heavy": 2, "projectile.pulse": 2 },
+  "entities": [
+    { "id": "ramp-left", "asset": "block.wedge", "material": "metal", "position": [-3.8, 0.5, -5.0], "rotation": [0, 1.5708, 0], "motion": "STATIC", "tags": ["ramp"] },
+    { "id": "ramp-right", "asset": "block.wedge", "material": "metal", "position": [3.8, 0.5, -5.0], "rotation": [0, -1.5708, 0], "motion": "STATIC", "tags": ["ramp"] },
+    { "id": "bumper-left", "asset": "bumper.round", "material": "rubber", "position": [-2.45, 0.22, -4.2], "motion": "STATIC", "tags": ["bumper"] },
+    { "id": "bumper-right", "asset": "bumper.round", "material": "rubber", "position": [2.45, 0.22, -4.2], "motion": "STATIC", "tags": ["bumper"] },
+
+    { "id": "lt-pillar-a", "asset": "block.pillar", "material": "stone", "position": [-4.0, 1.05, -1.8], "motion": "DYNAMIC", "tags": ["tower", "left"] },
+    { "id": "lt-pillar-b", "asset": "block.pillar", "material": "stone", "position": [-2.4, 1.05, -1.8], "motion": "DYNAMIC", "tags": ["tower", "left"] },
+    { "id": "lt-deck-a", "asset": "block.plank", "material": "wood", "position": [-3.2, 2.2, -1.8], "motion": "DYNAMIC", "tags": ["tower", "left"] },
+    { "id": "lt-cube-a", "asset": "block.cube", "material": "ceramic_cyan", "position": [-4.0, 2.78, -1.8], "motion": "DYNAMIC", "tags": ["tower", "left"] },
+    { "id": "lt-cube-b", "asset": "block.cube", "material": "ceramic_amber", "position": [-2.4, 2.78, -1.8], "motion": "DYNAMIC", "tags": ["tower", "left"] },
+    { "id": "lt-deck-b", "asset": "block.plank", "material": "metal", "position": [-3.2, 3.36, -1.8], "motion": "DYNAMIC", "tags": ["tower", "left"] },
+    { "id": "lt-rod-a", "asset": "block.rod", "material": "ceramic_cyan", "position": [-4.0, 4.25, -1.8], "rotation": [0, 0, 0.32], "motion": "DYNAMIC", "tags": ["tower", "left", "brace"] },
+    { "id": "lt-rod-b", "asset": "block.rod", "material": "ceramic_amber", "position": [-2.4, 4.25, -1.8], "rotation": [0, 0, -0.32], "motion": "DYNAMIC", "tags": ["tower", "left", "brace"] },
+    { "id": "lt-roof", "asset": "block.slab", "material": "metal", "position": [-3.2, 5.05, -1.8], "scale": [1.15, 1, 1.1], "motion": "DYNAMIC", "tags": ["tower", "left", "roof"] },
+    { "id": "lt-cap", "asset": "block.wedge", "material": "ceramic_violet", "position": [-3.2, 5.62, -1.8], "rotation": [0, 1.5708, 0], "motion": "DYNAMIC", "tags": ["tower", "left", "roof"] },
+
+    { "id": "rt-pillar-a", "asset": "block.pillar", "material": "stone", "position": [2.4, 1.05, -1.8], "motion": "DYNAMIC", "tags": ["tower", "right"] },
+    { "id": "rt-pillar-b", "asset": "block.pillar", "material": "stone", "position": [4.0, 1.05, -1.8], "motion": "DYNAMIC", "tags": ["tower", "right"] },
+    { "id": "rt-deck-a", "asset": "block.plank", "material": "wood", "position": [3.2, 2.2, -1.8], "motion": "DYNAMIC", "tags": ["tower", "right"] },
+    { "id": "rt-cube-a", "asset": "block.cube", "material": "ceramic_amber", "position": [2.4, 2.78, -1.8], "motion": "DYNAMIC", "tags": ["tower", "right"] },
+    { "id": "rt-cube-b", "asset": "block.cube", "material": "ceramic_cyan", "position": [4.0, 2.78, -1.8], "motion": "DYNAMIC", "tags": ["tower", "right"] },
+    { "id": "rt-deck-b", "asset": "block.plank", "material": "metal", "position": [3.2, 3.36, -1.8], "motion": "DYNAMIC", "tags": ["tower", "right"] },
+    { "id": "rt-rod-a", "asset": "block.rod", "material": "ceramic_amber", "position": [2.4, 4.25, -1.8], "rotation": [0, 0, 0.32], "motion": "DYNAMIC", "tags": ["tower", "right", "brace"] },
+    { "id": "rt-rod-b", "asset": "block.rod", "material": "ceramic_cyan", "position": [4.0, 4.25, -1.8], "rotation": [0, 0, -0.32], "motion": "DYNAMIC", "tags": ["tower", "right", "brace"] },
+    { "id": "rt-roof", "asset": "block.slab", "material": "metal", "position": [3.2, 5.05, -1.8], "scale": [1.15, 1, 1.1], "motion": "DYNAMIC", "tags": ["tower", "right", "roof"] },
+    { "id": "rt-cap", "asset": "block.wedge", "material": "ceramic_violet", "position": [3.2, 5.62, -1.8], "rotation": [0, -1.5708, 0], "motion": "DYNAMIC", "tags": ["tower", "right", "roof"] },
+
+    { "id": "bridge-main", "asset": "block.slab", "material": "metal", "position": [0, 3.75, -1.8], "scale": [1.45, 1, 0.82], "motion": "DYNAMIC", "tags": ["bridge"] },
+    { "id": "bridge-rail-left", "asset": "block.plank", "material": "wood", "position": [0, 4.15, -2.35], "motion": "DYNAMIC", "tags": ["bridge", "rail"] },
+    { "id": "bridge-rail-right", "asset": "block.plank", "material": "wood", "position": [0, 4.15, -1.25], "motion": "DYNAMIC", "tags": ["bridge", "rail"] },
+    { "id": "bridge-brace-left", "asset": "block.rod", "material": "ceramic_cyan", "position": [-1.05, 4.55, -2.35], "rotation": [0, 0, 0.7], "motion": "DYNAMIC", "tags": ["bridge", "brace"] },
+    { "id": "bridge-brace-right", "asset": "block.rod", "material": "ceramic_amber", "position": [1.05, 4.55, -1.25], "rotation": [0, 0, -0.7], "motion": "DYNAMIC", "tags": ["bridge", "brace"] },
+
+    { "id": "gate-pillar-left", "asset": "block.pillar", "material": "stone", "position": [-1.25, 1.05, -3.0], "motion": "DYNAMIC", "tags": ["gate"] },
+    { "id": "gate-pillar-right", "asset": "block.pillar", "material": "stone", "position": [1.25, 1.05, -3.0], "motion": "DYNAMIC", "tags": ["gate"] },
+    { "id": "gate-header", "asset": "block.plank", "material": "wood", "position": [0, 2.22, -3.0], "motion": "DYNAMIC", "tags": ["gate"] },
+    { "id": "gate-break-left", "asset": "breakable.column", "material": "ceramic_cyan", "position": [-0.42, 1.2, -3.0], "motion": "DYNAMIC", "tags": ["gate", "breakable"], "breakThreshold": 4.0 },
+    { "id": "gate-break-right", "asset": "breakable.column", "material": "ceramic_amber", "position": [0.42, 1.2, -3.0], "motion": "DYNAMIC", "tags": ["gate", "breakable"], "breakThreshold": 4.0 },
+    { "id": "gate-spinner", "asset": "spinner.cross", "material": "metal", "position": [0, 2.85, -3.65], "motion": "DYNAMIC", "tags": ["mechanism"] },
+
+    { "id": "inner-pillar-left", "asset": "block.pillar", "material": "stone", "position": [-1.2, 1.05, 0.3], "motion": "DYNAMIC", "tags": ["inner"] },
+    { "id": "inner-pillar-right", "asset": "block.pillar", "material": "stone", "position": [1.2, 1.05, 0.3], "motion": "DYNAMIC", "tags": ["inner"] },
+    { "id": "inner-deck", "asset": "block.plank", "material": "metal", "position": [0, 2.2, 0.3], "motion": "DYNAMIC", "tags": ["inner"] },
+    { "id": "inner-wedge-left", "asset": "block.wedge", "material": "ceramic_cyan", "position": [-0.75, 2.88, 0.3], "rotation": [0, 1.5708, 0], "motion": "DYNAMIC", "tags": ["inner", "ramp"] },
+    { "id": "inner-wedge-right", "asset": "block.wedge", "material": "ceramic_amber", "position": [0.75, 2.88, 0.3], "rotation": [0, -1.5708, 0], "motion": "DYNAMIC", "tags": ["inner", "ramp"] },
+
+    { "id": "domino-01", "asset": "block.rod", "material": "wood", "position": [-2.5, 1.35, 1.8], "rotation": [0, -0.3, 0], "motion": "DYNAMIC", "tags": ["chain"] },
+    { "id": "domino-02", "asset": "block.rod", "material": "ceramic_cyan", "position": [-1.8, 1.35, 2.15], "rotation": [0, -0.18, 0], "motion": "DYNAMIC", "tags": ["chain"] },
+    { "id": "domino-03", "asset": "block.rod", "material": "wood", "position": [-1.05, 1.35, 2.35], "rotation": [0, -0.08, 0], "motion": "DYNAMIC", "tags": ["chain"] },
+    { "id": "domino-04", "asset": "block.rod", "material": "ceramic_amber", "position": [-0.3, 1.35, 2.42], "rotation": [0, 0, 0], "motion": "DYNAMIC", "tags": ["chain"] },
+    { "id": "domino-05", "asset": "block.rod", "material": "wood", "position": [0.45, 1.35, 2.38], "rotation": [0, 0.08, 0], "motion": "DYNAMIC", "tags": ["chain"] },
+    { "id": "domino-06", "asset": "block.rod", "material": "ceramic_cyan", "position": [1.2, 1.35, 2.2], "rotation": [0, 0.18, 0], "motion": "DYNAMIC", "tags": ["chain"] },
+    { "id": "domino-07", "asset": "block.rod", "material": "wood", "position": [1.9, 1.35, 1.88], "rotation": [0, 0.3, 0], "motion": "DYNAMIC", "tags": ["chain"] },
+
+    { "id": "rear-left", "asset": "block.pillar", "material": "stone", "position": [-1.1, 1.05, 4.0], "motion": "DYNAMIC", "tags": ["goal-frame"] },
+    { "id": "rear-right", "asset": "block.pillar", "material": "stone", "position": [1.1, 1.05, 4.0], "motion": "DYNAMIC", "tags": ["goal-frame"] },
+    { "id": "rear-header", "asset": "block.plank", "material": "wood", "position": [0, 2.2, 4.0], "motion": "DYNAMIC", "tags": ["goal-frame"] },
+    { "id": "rear-core", "asset": "goal.energyCore", "material": "energy", "position": [0, 0.48, 3.55], "motion": "DYNAMIC", "tags": ["core"] },
+    { "id": "target", "asset": "target.totem", "material": "ceramic_violet", "position": [0, 1.0, 4.35], "motion": "DYNAMIC", "tags": ["target"] },
+    { "id": "rear-bumper-left", "asset": "bumper.round", "material": "rubber", "position": [-2.6, 0.22, 3.7], "motion": "STATIC", "tags": ["bumper"] },
+    { "id": "rear-bumper-right", "asset": "bumper.round", "material": "rubber", "position": [2.6, 0.22, 3.7], "motion": "STATIC", "tags": ["bumper"] }
+  ],
+  "objectives": [
+    { "type": "knockDown", "targetTag": "target", "maxUpDot": 0.52, "required": 1 }
+  ],
+  "scoring": {
+    "base": 3200,
+    "projectilePenalty": 205,
+    "impactComboWindowMs": 1050,
+    "comboMultiplier": 1.24,
+    "starThresholds": [2100, 2850, 3550]
+  }
+}
