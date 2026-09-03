@@ -51,6 +51,8 @@ const EDITOR_ASSET_IDS = Object.keys(ASSETS)
       !assetId.startsWith("projectile.") && !assetId.startsWith("platform."),
   )
   .sort();
+const MAX_HISTORY = 60;
+const ROTATION_SNAP = Math.PI / 12;
 
 export class LevelEditorPanel {
   private readonly toggleButton: HTMLButtonElement;
@@ -59,6 +61,9 @@ export class LevelEditorPanel {
   private readonly assetSelect: HTMLSelectElement;
   private readonly materialSelect: HTMLSelectElement;
   private readonly motionSelect: HTMLSelectElement;
+  private readonly snapSelect: HTMLSelectElement;
+  private readonly undoButton: HTMLButtonElement;
+  private readonly redoButton: HTMLButtonElement;
   private readonly jsonText: HTMLTextAreaElement;
   private readonly fileInput: HTMLInputElement;
   private readonly status: HTMLElement;
@@ -67,6 +72,10 @@ export class LevelEditorPanel {
   private readonly generatorSeed: HTMLInputElement;
   private readonly generatorComplexity: HTMLInputElement;
   private readonly viewport: EditorViewport;
+  private readonly historyPast: HappyBlocksLevel[] = [];
+  private readonly historyFuture: HappyBlocksLevel[] = [];
+  private historyGroupOpen = false;
+  private historyGroupTimer: number | null = null;
   private gizmoMode: EditorGizmoMode = "position";
   private working: HappyBlocksLevel | null = null;
   private source: HappyBlocksLevel | null = null;
@@ -99,6 +108,16 @@ export class LevelEditorPanel {
           <button type="button" data-editor-gizmo="position" data-active="true">Move · W</button>
           <button type="button" data-editor-gizmo="rotation">Rotate · E</button>
           <button type="button" data-editor-gizmo="scale">Scale · S</button>
+          <label class="level-editor__snap">Snap
+            <select id="editor-snap" aria-label="Grid snap size">
+              <option value="0">Off</option>
+              <option value="0.05">0.05</option>
+              <option value="0.1" selected>0.10</option>
+              <option value="0.25">0.25</option>
+              <option value="0.5">0.50</option>
+              <option value="1">1.00</option>
+            </select>
+          </label>
         </div>
       </section>
       <div class="level-editor__section">
@@ -133,6 +152,8 @@ export class LevelEditorPanel {
         <label>Level JSON<textarea id="editor-json" spellcheck="false"></textarea></label>
       </details>
       <div class="level-editor__toolbar">
+        <button id="editor-undo" type="button" data-editor-action="undo" title="Undo · Ctrl+Z">↶ Undo</button>
+        <button id="editor-redo" type="button" data-editor-action="redo" title="Redo · Ctrl+Shift+Z / Ctrl+Y">↷ Redo</button>
         <button type="button" data-editor-action="parse">Apply JSON</button>
         <button type="button" data-editor-action="preview" class="level-editor__primary">▶ Physics Preview</button>
         <button type="button" data-editor-action="import">Import</button>
@@ -148,6 +169,9 @@ export class LevelEditorPanel {
     this.assetSelect = this.req("editor-asset") as HTMLSelectElement;
     this.materialSelect = this.req("editor-material") as HTMLSelectElement;
     this.motionSelect = this.req("editor-motion") as HTMLSelectElement;
+    this.snapSelect = this.req("editor-snap") as HTMLSelectElement;
+    this.undoButton = this.req("editor-undo") as HTMLButtonElement;
+    this.redoButton = this.req("editor-redo") as HTMLButtonElement;
     this.jsonText = this.req("editor-json") as HTMLTextAreaElement;
     this.fileInput = this.req("editor-file") as HTMLInputElement;
     this.status = this.req("editor-status");
@@ -187,11 +211,13 @@ export class LevelEditorPanel {
     this.panel.addEventListener("click", this.onPanelClick);
     this.fileInput.addEventListener("change", this.onImportFile);
     window.addEventListener("keydown", this.onEditorKeydown);
+    this.updateHistoryButtons();
   }
 
   setLevel(level: HappyBlocksLevel): void {
     this.source = this.clone(level);
     this.working = this.clone(level);
+    this.clearHistory();
     this.syncJsonFromWorking();
     this.rebuildEntityOptions();
     this.viewport.setLevel(this.working, this.entitySelect.value || null);
@@ -211,7 +237,7 @@ export class LevelEditorPanel {
         this.viewport.setLevel(this.working, this.entitySelect.value || null);
       }
       requestAnimationFrame(() => this.viewport.resize());
-      this.setStatus("Live edit mode · W move · E rotate · S scale.", "success");
+      this.setStatus("Live edit mode · W move · E rotate · S scale · Ctrl+Z undo.", "success");
     } else {
       notifyEditorSelection(null);
     }
@@ -233,6 +259,9 @@ export class LevelEditorPanel {
 
   dispose(): void {
     notifyEditorSelection(null);
+    if (this.historyGroupTimer !== null) {
+      window.clearTimeout(this.historyGroupTimer);
+    }
     this.toggleButton.removeEventListener("click", this.toggle);
     this.entitySelect.removeEventListener("change", this.syncEntityEditor);
     this.assetSelect.removeEventListener("change", this.onPropertiesChanged);
@@ -276,6 +305,8 @@ export class LevelEditorPanel {
     const action = button?.dataset.editorAction;
     if (!action) return;
     if (action === "close") this.close();
+    else if (action === "undo") this.undo();
+    else if (action === "redo") this.redo();
     else if (action === "parse") this.parseJson();
     else if (action === "preview") void this.preview();
     else if (action === "import") this.fileInput.click();
@@ -288,7 +319,21 @@ export class LevelEditorPanel {
   };
 
   private readonly onEditorKeydown = (event: KeyboardEvent): void => {
-    if (!this.isOpen() || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (!this.isOpen()) return;
+
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
+      event.preventDefault();
+      if (event.shiftKey) this.redo();
+      else this.undo();
+      return;
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "y") {
+      event.preventDefault();
+      this.redo();
+      return;
+    }
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+
     const target = event.target as HTMLElement | null;
     if (target?.matches("input, textarea, select")) return;
     if (event.key.toLowerCase() === "w") this.setGizmoMode("position");
@@ -345,6 +390,7 @@ export class LevelEditorPanel {
   private readonly onPropertiesChanged = (): void => {
     const entity = this.selectedEntity();
     if (!entity || !this.working) return;
+    this.checkpoint();
     entity.asset = this.assetSelect.value;
     entity.material = this.materialSelect.value;
     entity.motion = this.motionSelect.value === "STATIC" ? "STATIC" : "DYNAMIC";
@@ -356,10 +402,10 @@ export class LevelEditorPanel {
   private readonly onTransformChanged = (): void => {
     const entity = this.selectedEntity();
     if (!entity) return;
-    const transform = this.readTransformInputs(entity);
-    entity.position = transform.position;
-    entity.rotation = transform.rotation;
-    entity.scale = transform.scale;
+    this.groupedCheckpoint();
+    const transform = this.snapTransform(this.readTransformInputs(entity));
+    this.applyTransformToEntity(entity, transform);
+    this.writeTransformInputs(entity);
     this.syncJsonFromWorking();
     this.viewport.updateEntity(entity);
   };
@@ -367,15 +413,17 @@ export class LevelEditorPanel {
   private applyViewportTransform(entityId: string, transform: EditorTransform): void {
     const entity = this.working?.entities.find((candidate) => candidate.id === entityId);
     if (!entity) return;
-    entity.position = [...transform.position];
-    entity.rotation = [...transform.rotation];
-    entity.scale = [...transform.scale];
+    this.groupedCheckpoint();
+    const snapped = this.snapTransform(transform);
+    this.applyTransformToEntity(entity, snapped);
     if (this.entitySelect.value === entityId) this.writeTransformInputs(entity);
     this.syncJsonFromWorking();
+    this.viewport.updateEntity(entity);
   }
 
   private addEntity(): void {
     if (!this.working) return;
+    this.checkpoint();
     const asset = this.assetSelect.value || EDITOR_ASSET_IDS[0];
     const entity: LevelEntity = {
       id: this.uniqueId(asset.replaceAll(".", "-")),
@@ -397,6 +445,7 @@ export class LevelEditorPanel {
   private duplicateEntity(): void {
     const source = this.selectedEntity();
     if (!source || !this.working) return;
+    this.checkpoint();
     const copy = this.cloneEntity(source);
     copy.id = this.uniqueId(`${source.id}-copy`);
     copy.position = [source.position[0] + 0.45, source.position[1], source.position[2] + 0.15];
@@ -410,6 +459,7 @@ export class LevelEditorPanel {
   private deleteEntity(): void {
     const entity = this.selectedEntity();
     if (!entity || !this.working) return;
+    this.checkpoint();
     const index = this.working.entities.indexOf(entity);
     this.working.entities.splice(index, 1);
     this.syncJsonFromWorking();
@@ -422,6 +472,7 @@ export class LevelEditorPanel {
   private generate(): void {
     if (!this.working) return;
     try {
+      this.checkpoint();
       const generated = generateLevel(this.working, {
         template: this.generatorTemplate.value as GeneratorTemplate,
         seed: this.generatorSeed.value.trim() || "happyblocks",
@@ -443,6 +494,7 @@ export class LevelEditorPanel {
   private parseJson(): boolean {
     try {
       const level = this.parseAndValidate(this.jsonText.value);
+      if (this.working) this.checkpoint();
       this.working = this.clone(level);
       this.syncJsonFromWorking();
       this.rebuildEntityOptions(this.entitySelect.value);
@@ -472,12 +524,13 @@ export class LevelEditorPanel {
       this.setStatus("Restoring authored level…", "normal");
       await this.callbacks.onRestore();
       if (this.source) {
+        if (this.working) this.checkpoint();
         this.working = this.clone(this.source);
         this.syncJsonFromWorking();
         this.rebuildEntityOptions();
         this.viewport.setLevel(this.working);
       }
-      this.setStatus("Authored level restored.", "success");
+      this.setStatus("Authored level restored. Undo is available.", "success");
     } catch (error) {
       this.setError(error);
     }
@@ -495,6 +548,115 @@ export class LevelEditorPanel {
     anchor.click();
     URL.revokeObjectURL(url);
     this.setStatus(`Exported ${anchor.download}.`, "success");
+  }
+
+  private undo(): void {
+    if (!this.working || this.historyPast.length === 0) return;
+    this.endHistoryGroup();
+    const previous = this.historyPast.pop();
+    if (!previous) return;
+    this.historyFuture.push(this.clone(this.working));
+    this.working = previous;
+    this.applyWorkingState(this.entitySelect.value);
+    this.updateHistoryButtons();
+    this.setStatus("Undo applied.", "success");
+  }
+
+  private redo(): void {
+    if (!this.working || this.historyFuture.length === 0) return;
+    this.endHistoryGroup();
+    const next = this.historyFuture.pop();
+    if (!next) return;
+    this.historyPast.push(this.clone(this.working));
+    this.working = next;
+    this.applyWorkingState(this.entitySelect.value);
+    this.updateHistoryButtons();
+    this.setStatus("Redo applied.", "success");
+  }
+
+  private checkpoint(): void {
+    if (!this.working) return;
+    this.endHistoryGroup();
+    this.pushPast(this.clone(this.working));
+    this.historyFuture.splice(0);
+    this.updateHistoryButtons();
+  }
+
+  private groupedCheckpoint(): void {
+    if (!this.working) return;
+    if (!this.historyGroupOpen) {
+      this.pushPast(this.clone(this.working));
+      this.historyFuture.splice(0);
+      this.historyGroupOpen = true;
+      this.updateHistoryButtons();
+    }
+    if (this.historyGroupTimer !== null) {
+      window.clearTimeout(this.historyGroupTimer);
+    }
+    this.historyGroupTimer = window.setTimeout(() => {
+      this.historyGroupOpen = false;
+      this.historyGroupTimer = null;
+    }, 300);
+  }
+
+  private endHistoryGroup(): void {
+    this.historyGroupOpen = false;
+    if (this.historyGroupTimer !== null) {
+      window.clearTimeout(this.historyGroupTimer);
+      this.historyGroupTimer = null;
+    }
+  }
+
+  private pushPast(level: HappyBlocksLevel): void {
+    this.historyPast.push(level);
+    if (this.historyPast.length > MAX_HISTORY) this.historyPast.shift();
+  }
+
+  private clearHistory(): void {
+    this.endHistoryGroup();
+    this.historyPast.splice(0);
+    this.historyFuture.splice(0);
+    this.updateHistoryButtons();
+  }
+
+  private updateHistoryButtons(): void {
+    this.undoButton.disabled = this.historyPast.length === 0;
+    this.redoButton.disabled = this.historyFuture.length === 0;
+  }
+
+  private applyWorkingState(preferredId?: string): void {
+    if (!this.working) return;
+    this.syncJsonFromWorking();
+    const fallback = this.working.entities[0]?.id;
+    const selection = this.working.entities.some((entity) => entity.id === preferredId)
+      ? preferredId
+      : fallback;
+    this.rebuildEntityOptions(selection);
+    this.viewport.setLevel(this.working, selection ?? null);
+  }
+
+  private snapTransform(transform: EditorTransform): EditorTransform {
+    const step = Number(this.snapSelect.value);
+    if (!Number.isFinite(step) || step <= 0) {
+      return {
+        position: [...transform.position],
+        rotation: [...transform.rotation],
+        scale: [...transform.scale],
+      };
+    }
+    const snap = (value: number, increment: number): number =>
+      Math.round(value / increment) * increment;
+    return {
+      position: transform.position.map((value) => snap(value, step)) as [number, number, number],
+      rotation: transform.rotation.map((value) => snap(value, ROTATION_SNAP)) as [number, number, number],
+      scale: transform.scale.map((value) => Math.max(0.05, snap(value, step))) as [number, number, number],
+    };
+  }
+
+  private applyTransformToEntity(entity: LevelEntity, transform: EditorTransform): void {
+    entity.position = [...transform.position];
+    entity.rotation = [...transform.rotation];
+    entity.scale = [...transform.scale];
   }
 
   private rebuildEntityOptions(preferredId?: string): void {
