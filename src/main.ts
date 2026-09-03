@@ -4,6 +4,7 @@ import "./editor-rules.css";
 import "./ui-kit.css";
 import "@babylonjs/loaders/glTF";
 import { HappyBlocksGame } from "./game/HappyBlocksGame";
+import { installEditorLevelSettingsPanel } from "./game/editor/EditorLevelSettingsPanel";
 import { installEditorRulesPanel } from "./game/editor/EditorRulesPanel";
 import { installEditorStructurePalette } from "./game/editor/EditorStructurePalette";
 
@@ -36,4 +37,5 @@ for (const button of levelButtons) {
 await game.start(levelUrls[0]);
 installEditorStructurePalette();
 installEditorRulesPanel();
+installEditorLevelSettingsPanel();
 window.addEventListener("beforeunload", () => game.dispose(), { once: true });
