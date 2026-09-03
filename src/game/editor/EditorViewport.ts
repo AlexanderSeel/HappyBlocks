@@ -13,6 +13,7 @@ import {
   Scene,
   Vector3,
 } from "@babylonjs/core";
+import { ArcRotateCameraPointersInput } from "@babylonjs/core/Cameras/Inputs/arcRotateCameraPointersInput";
 import { ASSETS } from "../AssetDefinitions";
 import type { HappyBlocksLevel, LevelEntity } from "../levels/types";
 import { createDetailedVisual } from "../rendering/DetailedVisualFactory";
@@ -68,10 +69,20 @@ export class EditorViewport {
       this.scene,
     );
     this.camera.lowerRadiusLimit = 1.5;
-    this.camera.upperRadiusLimit = 40;
+    this.camera.upperRadiusLimit = 55;
+    this.camera.lowerBetaLimit = 0.12;
+    this.camera.upperBetaLimit = Math.PI - 0.12;
     this.camera.wheelPrecision = 35;
     this.camera.panningSensibility = 70;
+    this.camera.angularSensibilityX = 700;
+    this.camera.angularSensibilityY = 700;
     this.camera.attachControl(canvas, true);
+    const pointers = this.camera.inputs.attached.pointers;
+    if (pointers instanceof ArcRotateCameraPointersInput) {
+      pointers.buttons = [0, 1, 2];
+      pointers.pinchDeltaPercentage = 0.01;
+    }
+    this.canvas.addEventListener("contextmenu", this.preventContextMenu);
 
     const light = new HemisphericLight(
       "editor-light",
@@ -127,7 +138,7 @@ export class EditorViewport {
     }
 
     this.camera.target.copyFromFloats(...level.camera.target);
-    this.camera.radius = Math.min(32, Math.max(2, level.camera.radius));
+    this.camera.radius = Math.min(48, Math.max(2, level.camera.radius));
     const selection =
       preferredSelection && this.meshes.has(preferredSelection)
         ? preferredSelection
@@ -200,9 +211,10 @@ export class EditorViewport {
 
   dispose(): void {
     this.disposed = true;
+    this.canvas.removeEventListener("contextmenu", this.preventContextMenu);
     this.resizeObserver.disconnect();
     this.gizmos.dispose();
-    Object.values(this.surfaceMaterials).forEach((material) => material.dispose());
+    new Set(Object.values(this.surfaceMaterials)).forEach((material) => material.dispose());
     this.scene.dispose();
     this.engine.dispose();
   }
@@ -217,7 +229,7 @@ export class EditorViewport {
     if (definition.kind === "sphere") {
       mesh = MeshBuilder.CreateSphere(
         `editor:${entity.id}`,
-        { diameter: definition.radius! * 2, segments: 20 },
+        { diameter: definition.radius! * 2, segments: 28 },
         this.scene,
       );
     } else if (definition.kind === "cylinder") {
@@ -321,4 +333,8 @@ export class EditorViewport {
       .map((value) => value.toFixed(4))
       .join("|");
   }
+
+  private readonly preventContextMenu = (event: MouseEvent): void => {
+    event.preventDefault();
+  };
 }
