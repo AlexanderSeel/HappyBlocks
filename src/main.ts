@@ -10,6 +10,7 @@ if (!canvas) {
 const levelUrls = [
   "/levels/level_001_first_collapse.json",
   "/levels/level_002_crossfire.json",
+  "/levels/level_003_ricochet_lab.json",
 ];
 const game = new HappyBlocksGame(canvas);
 game.setLevelSequence(levelUrls);

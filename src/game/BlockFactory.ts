@@ -10,6 +10,7 @@ import {
 } from "@babylonjs/core";
 import { ASSETS } from "./AssetDefinitions";
 import type { LevelEntity } from "./levels/types";
+import { getPhysicsSurface } from "./physics/PhysicsMaterials";
 import type { MaterialLibrary } from "./rendering/materials";
 import type { VisualAssetLibrary } from "./rendering/VisualAssetLibrary";
 
@@ -68,11 +69,11 @@ export class BlockFactory {
       mesh.scaling.copyFromFloats(...entity.scale);
     }
 
-    const material =
-      this.materials[entity.material ?? "wood"] ?? this.materials.wood;
+    const materialId = entity.material ?? "wood";
+    const material = this.materials[materialId] ?? this.materials.wood;
     mesh.material = material;
     mesh.receiveShadows = true;
-    mesh.metadata = { assetId: entity.asset, tags: entity.tags ?? [] };
+    mesh.metadata = { assetId: entity.asset, materialId, tags: entity.tags ?? [] };
 
     const visual = this.visuals?.instantiate(
       definition.model,
@@ -85,13 +86,14 @@ export class BlockFactory {
     }
 
     const dynamic = entity.motion === "DYNAMIC";
+    const surface = getPhysicsSurface(entity.asset, materialId);
     const aggregate = new PhysicsAggregate(
       mesh,
       definition.physicsShape,
       {
         mass: dynamic ? definition.mass * (entity.massScale ?? 1) : 0,
-        friction: 0.58,
-        restitution: 0.08,
+        friction: surface.friction,
+        restitution: surface.restitution,
       },
       this.scene,
     );

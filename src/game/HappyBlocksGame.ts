@@ -19,6 +19,7 @@ import { ArcRotateCameraPointersInput } from "@babylonjs/core/Cameras/Inputs/arc
 import { AudioFx } from "./AudioFx";
 import { ASSETS } from "./AssetDefinitions";
 import { BlockFactory, type RuntimeEntity } from "./BlockFactory";
+import { spawnImpactBurst } from "./effects/ImpactBurst";
 import { spawnPulseWave } from "./effects/PulseWave";
 import { ThrowController } from "./input/ThrowController";
 import { loadLevel as fetchLevel } from "./levels/loadLevel";
@@ -176,7 +177,7 @@ export class HappyBlocksGame {
     shadows.bias = 0.0008;
 
     this.materials = createMaterialLibrary(scene);
-    this.createArena(shadows);
+    this.createArena(shadows, level.arena.platform);
 
     this.visuals = new VisualAssetLibrary(scene);
     const modelUrls = [
@@ -228,31 +229,41 @@ export class HappyBlocksGame {
     this.syncLevelButtons();
   }
 
-  private createArena(shadows: ShadowGenerator): void {
+  private createArena(shadows: ShadowGenerator, platformAssetId: string): void {
     if (!this.scene || !this.materials) {
       return;
     }
 
-    const mesh = MeshBuilder.CreateBox(
-      "arena",
-      { width: 11, height: 0.4, depth: 8 },
-      this.scene,
-    );
-    mesh.position.y = -0.2;
+    const definition = ASSETS[platformAssetId] ?? ASSETS["platform.square"];
+    const [width, height, depth] = definition.dimensions;
+    const mesh =
+      definition.kind === "cylinder"
+        ? MeshBuilder.CreateCylinder(
+            "arena",
+            { height, diameter: definition.radius! * 2, tessellation: 64 },
+            this.scene,
+          )
+        : MeshBuilder.CreateBox(
+            "arena",
+            { width, height, depth },
+            this.scene,
+          );
+    mesh.position.y = -height / 2;
     mesh.material = this.materials.platform;
     mesh.receiveShadows = true;
 
     const aggregate = new PhysicsAggregate(
       mesh,
-      PhysicsShapeType.BOX,
+      definition.physicsShape,
       { mass: 0, friction: 0.82, restitution: 0.04 },
       this.scene,
     );
     this.platform = { mesh, aggregate };
 
+    const ringDiameter = definition.kind === "cylinder" ? definition.radius! * 1.88 : Math.min(width, depth) * 1.27;
     const ring = MeshBuilder.CreateTorus(
       "arena-ring",
-      { diameter: 10.2, thickness: 0.04, tessellation: 80 },
+      { diameter: ringDiameter, thickness: 0.04, tessellation: 80 },
       this.scene,
     );
     ring.rotation.x = Math.PI / 2;
@@ -324,6 +335,9 @@ export class HappyBlocksGame {
     const angularVelocity = entity.aggregate.body.getAngularVelocity();
     const source = entity.source;
 
+    if (this.scene) {
+      spawnImpactBurst(this.scene, position, impulse, "dust");
+    }
     entity.disposeVisual();
     entity.aggregate.dispose();
     entity.mesh.dispose();
@@ -428,6 +442,19 @@ export class HappyBlocksGame {
   }
 
   private onProjectileImpact(assetId: string, impulse: number, point: Vector3): void {
+    if (this.scene) {
+      spawnImpactBurst(
+        this.scene,
+        point,
+        impulse,
+        assetId === "projectile.pulse"
+          ? "energy"
+          : impulse >= 6
+            ? "spark"
+            : "dust",
+      );
+    }
+
     if (assetId === "projectile.pulse") {
       this.triggerPulse(point);
     }

@@ -1,0 +1,16 @@
+{
+  "id":"prototype-003","name":"Ricochet Lab","mode":"chainReaction",
+  "arena":{"platform":"platform.round","gravity":[0,-9.81,0]},
+  "camera":{"target":[0,1.3,0.6],"alpha":-1.45,"beta":1.08,"radius":13,"minRadius":8,"maxRadius":18},
+  "inventory":{"projectile.ball":2,"projectile.heavy":1,"projectile.pulse":1},
+  "entities":[
+    {"id":"bumperL","asset":"bumper.round","material":"rubber","position":[-1.55,1.05,-0.45],"motion":"STATIC","tags":["bumper"]},
+    {"id":"bumperR","asset":"bumper.round","material":"rubber","position":[1.55,1.05,0.55],"motion":"STATIC","tags":["bumper"]},
+    {"id":"leftPost","asset":"block.pillar","material":"stone","position":[-1.1,1.05,2.15],"motion":"DYNAMIC"},
+    {"id":"rightPost","asset":"block.pillar","material":"stone","position":[1.1,1.05,2.15],"motion":"DYNAMIC"},
+    {"id":"crossBeam","asset":"block.plank","material":"wood","position":[0,2.2,2.15],"motion":"DYNAMIC"},
+    {"id":"target","asset":"target.totem","material":"ceramic_violet","position":[0,0.7,2.15],"motion":"DYNAMIC","tags":["target"]}
+  ],
+  "objectives":[{"type":"knockDown","targetTag":"target","maxUpDot":0.45,"required":1}],
+  "scoring":{"base":1650,"projectilePenalty":190,"impactComboWindowMs":950,"comboMultiplier":1.22,"starThresholds":[800,1200,1550]}
+}
