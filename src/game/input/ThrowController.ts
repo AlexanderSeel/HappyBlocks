@@ -14,6 +14,7 @@ import {
   Vector3,
 } from "@babylonjs/core";
 import { ASSETS } from "../AssetDefinitions";
+import { createDetailedVisual } from "../rendering/DetailedVisualFactory";
 import type { MaterialLibrary } from "../rendering/materials";
 import type { VisualAssetLibrary } from "../rendering/VisualAssetLibrary";
 
@@ -39,6 +40,17 @@ interface AimState {
   startY: number;
   direction: Vector3;
 }
+
+const SCOUT_KEYS = new Set([
+  "KeyW",
+  "KeyA",
+  "KeyS",
+  "KeyD",
+  "KeyQ",
+  "KeyE",
+  "ShiftLeft",
+  "ShiftRight",
+]);
 
 export class ThrowController {
   private aim: AimState | null = null;
@@ -105,14 +117,33 @@ export class ThrowController {
       : null;
   }
 
+  private editorOpen(): boolean {
+    return Boolean(document.querySelector(".level-editor:not([hidden])"));
+  }
+
+  private textEditing(target: EventTarget | null): boolean {
+    if (!(target instanceof HTMLElement)) return false;
+    return (
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      target instanceof HTMLSelectElement ||
+      target.isContentEditable ||
+      Boolean(target.closest(".level-editor"))
+    );
+  }
+
   private begin(event: PointerEvent): void {
-    if (!this.events.canThrow() || event.altKey || event.ctrlKey || event.metaKey) {
+    if (
+      this.editorOpen() ||
+      !this.events.canThrow() ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey
+    ) {
       return;
     }
     const camera = this.scene.activeCamera;
-    if (!camera) {
-      return;
-    }
+    if (!camera) return;
 
     const ray = this.scene.createPickingRay(
       this.scene.pointerX,
@@ -133,18 +164,14 @@ export class ThrowController {
   }
 
   private move(event: PointerEvent): void {
-    if (!this.aim) {
-      return;
-    }
+    if (!this.aim) return;
     const power = this.power(event);
     this.events.onAim(power);
     this.drawTrajectory(this.velocity(power, this.events.getProjectileAsset()));
   }
 
   private release(event: PointerEvent): void {
-    if (!this.aim) {
-      return;
-    }
+    if (!this.aim) return;
     const power = this.power(event);
     const assetId = this.events.getProjectileAsset();
     const velocity = this.velocity(power, assetId);
@@ -153,9 +180,7 @@ export class ThrowController {
     this.reticle.hidden = true;
     this.disposeTrajectory();
 
-    if (power < 0.07 || !this.events.canThrow()) {
-      return;
-    }
+    if (this.editorOpen() || power < 0.07 || !this.events.canThrow()) return;
     this.spawn(velocity, assetId);
     this.events.onThrow(assetId);
   }
@@ -169,8 +194,7 @@ export class ThrowController {
   }
 
   private launchOrigin(direction: Vector3, radius: number): Vector3 {
-    const camera = this.scene.activeCamera;
-    const base = camera?.globalPosition ?? new Vector3(0, 1.6, -6);
+    const base = this.scene.activeCamera?.globalPosition ?? new Vector3(0, 1.6, -6);
     return base
       .add(direction.scale(Math.max(0.72, radius * 1.8)))
       .add(new Vector3(0, -0.16, 0));
@@ -182,7 +206,11 @@ export class ThrowController {
       this.scene.activeCamera?.getForwardRay().direction.clone() ??
       Vector3.Forward();
     const speedFactor =
-      assetId === "projectile.heavy" ? 0.86 : assetId === "projectile.pulse" ? 1.06 : 1;
+      assetId === "projectile.heavy"
+        ? 0.86
+        : assetId === "projectile.pulse"
+          ? 1.06
+          : 1;
     const speed = (8.5 + 20.5 * Math.pow(power, 1.16)) * speedFactor;
     direction.y += 0.035 + power * 0.07;
     return direction.normalize().scale(speed);
@@ -194,19 +222,22 @@ export class ThrowController {
       throw new Error(`Unsupported projectile '${assetId}'`);
     }
 
+    const name = `projectile-${this.projectiles.length + 1}`;
     const mesh =
       definition.kind === "capsule"
         ? MeshBuilder.CreateCapsule(
-            `projectile-${this.projectiles.length + 1}`,
+            name,
             { height: definition.dimensions[1], radius: definition.radius! },
             this.scene,
           )
         : MeshBuilder.CreateSphere(
-            `projectile-${this.projectiles.length + 1}`,
+            name,
             { diameter: definition.radius! * 2, segments: 24 },
             this.scene,
           );
-    mesh.position.copyFrom(this.launchOrigin(velocity.clone().normalize(), definition.radius ?? 0.4));
+    mesh.position.copyFrom(
+      this.launchOrigin(velocity.clone().normalize(), definition.radius ?? 0.4),
+    );
 
     const material =
       assetId === "projectile.heavy"
@@ -216,13 +247,19 @@ export class ThrowController {
           : this.materials.projectile;
     mesh.material = material;
 
-    const visual = this.visuals?.instantiate(
-      definition.model,
+    const detailed = createDetailedVisual(
+      this.scene,
+      assetId,
       mesh,
       material,
-      mesh.name,
+      name,
     );
-    if (visual) mesh.isVisible = false;
+    const imported = detailed
+      ? null
+      : this.visuals?.instantiate(definition.model, mesh, material, name);
+    if ((detailed?.meshes.length ?? 0) > 0 || (imported?.meshes.length ?? 0) > 0) {
+      mesh.isVisible = false;
+    }
 
     const aggregate = new PhysicsAggregate(
       mesh,
@@ -240,7 +277,10 @@ export class ThrowController {
       assetId,
       mesh,
       aggregate,
-      disposeVisual: visual?.dispose ?? (() => undefined),
+      disposeVisual: () => {
+        detailed?.dispose();
+        imported?.dispose();
+      },
       lastImpactAt: 0,
       pulseTriggered: false,
     };
@@ -294,7 +334,10 @@ export class ThrowController {
   }
 
   private updateScoutNavigation(): void {
-    if (this.aim) return;
+    if (this.aim || this.editorOpen()) {
+      this.keys.clear();
+      return;
+    }
     const camera = this.arcCamera();
     if (!camera || this.keys.size === 0) return;
 
@@ -315,7 +358,7 @@ export class ThrowController {
     if (movement.lengthSquared() === 0) return;
 
     const boost =
-      this.keys.has("ShiftLeft") || this.keys.has("ShiftRight") ? 3.0 : 1;
+      this.keys.has("ShiftLeft") || this.keys.has("ShiftRight") ? 3 : 1;
     const speed = Math.max(2.2, camera.radius * 0.36) * boost;
     movement.normalize().scaleInPlace(speed * dt);
     camera.target.addInPlace(movement);
@@ -323,12 +366,13 @@ export class ThrowController {
   }
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
-    if (["KeyW", "KeyA", "KeyS", "KeyD", "KeyQ", "KeyE", "ShiftLeft", "ShiftRight"].includes(event.code)) {
-      this.keys.add(event.code);
-      if (!(event.target instanceof HTMLInputElement) && !(event.target instanceof HTMLTextAreaElement)) {
-        event.preventDefault();
-      }
+    if (!SCOUT_KEYS.has(event.code)) return;
+    if (this.editorOpen() || this.textEditing(event.target)) {
+      this.keys.delete(event.code);
+      return;
     }
+    this.keys.add(event.code);
+    event.preventDefault();
   };
 
   private readonly onKeyUp = (event: KeyboardEvent): void => {
@@ -346,6 +390,7 @@ export class ThrowController {
 
   reset(): void {
     this.aim = null;
+    this.keys.clear();
     this.reticle.hidden = true;
     this.disposeTrajectory();
     for (const projectile of this.projectiles) {
