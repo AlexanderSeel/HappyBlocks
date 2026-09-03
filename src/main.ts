@@ -6,6 +6,7 @@ import "@babylonjs/loaders/glTF";
 import { HappyBlocksGame } from "./game/HappyBlocksGame";
 import { installEditorLevelSettingsPanel } from "./game/editor/EditorLevelSettingsPanel";
 import { installEditorRulesPanel } from "./game/editor/EditorRulesPanel";
+import { installEditorScoringPanel } from "./game/editor/EditorScoringPanel";
 import { installEditorStructurePalette } from "./game/editor/EditorStructurePalette";
 
 const canvas = document.querySelector<HTMLCanvasElement>("#game-canvas");
@@ -38,4 +39,5 @@ await game.start(levelUrls[0]);
 installEditorStructurePalette();
 installEditorRulesPanel();
 installEditorLevelSettingsPanel();
+installEditorScoringPanel();
 window.addEventListener("beforeunload", () => game.dispose(), { once: true });
