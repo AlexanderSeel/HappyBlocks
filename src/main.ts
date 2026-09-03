@@ -15,6 +15,7 @@ const levelUrls = [
   "/levels/level_004_precision_pull.json",
   "/levels/level_005_guardian.json",
   "/levels/level_006_sky_citadel.json",
+  "/levels/level_007_iron_labyrinth.json",
 ];
 const game = new HappyBlocksGame(canvas);
 game.setLevelSequence(levelUrls);
