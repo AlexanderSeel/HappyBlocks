@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#061014" />
+    <title>HappyBlocks</title>
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="game-canvas" aria-label="HappyBlocks physics game"></canvas>
+      <div id="hud" class="hud">
+        <div class="hud__brand">HAPPY<span>BLOCKS</span></div>
+        <div class="hud__stats">
+          <div><small>LEVEL</small><strong id="level-name">Loading…</strong></div>
+          <div><small>SHOTS</small><strong id="shots">0</strong></div>
+          <div><small>SCORE</small><strong id="score">0</strong></div>
+        </div>
+        <div id="status" class="hud__status">Initializing Havok…</div>
+        <div id="power-wrap" class="power" aria-hidden="true"><div id="power-bar" class="power__bar"></div></div>
+        <div class="hud__actions"><button id="reset-button" type="button">↻ Reset</button></div>
+        <div class="hud__help">Drag left mouse / touch to aim & throw · Right mouse drag to orbit · Wheel to zoom · R to reset</div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

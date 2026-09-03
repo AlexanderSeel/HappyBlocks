@@ -1,0 +1,5 @@
+{
+  "impactDust":{"capacity":80,"emitRate":0,"manualBurst":18,"minLifeTime":0.18,"maxLifeTime":0.55,"minSize":0.03,"maxSize":0.12,"gravity":[0,-4.5,0]},
+  "goalBurst":{"capacity":120,"emitRate":0,"manualBurst":42,"minLifeTime":0.35,"maxLifeTime":0.95,"minSize":0.04,"maxSize":0.16,"gravity":[0,-1.2,0]},
+  "breakShards":{"capacity":140,"emitRate":0,"manualBurst":30,"minLifeTime":0.2,"maxLifeTime":0.7,"minSize":0.025,"maxSize":0.09,"gravity":[0,-7,0]}
+}

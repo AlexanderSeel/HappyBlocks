@@ -1,0 +1,15 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://happyblocks.local/schemas/level.schema.json",
+  "title":"HappyBlocks Level",
+  "type":"object",
+  "required":["id","name","mode","arena","camera","inventory","entities","objectives"],
+  "properties":{
+    "id":{"type":"string"},"name":{"type":"string"},"mode":{"type":"string"},
+    "arena":{"type":"object","required":["platform","gravity"]},
+    "camera":{"type":"object","required":["target","alpha","beta","radius"]},
+    "inventory":{"type":"object","additionalProperties":{"type":"integer","minimum":0}},
+    "entities":{"type":"array","items":{"type":"object","required":["id","asset","position","motion"]}},
+    "objectives":{"type":"array","minItems":1}
+  }
+}

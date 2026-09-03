@@ -1,0 +1,11 @@
+{
+  "version":1,
+  "engine":"WebAudio procedural",
+  "sounds":{
+    "throw":{"wave":"sine","frequency":210,"frequencyEnd":115,"duration":0.16,"gain":0.15},
+    "impactLight":{"wave":"triangle","frequency":145,"frequencyEnd":82,"duration":0.09,"gain":0.12},
+    "impactHeavy":{"wave":"sine","frequency":82,"frequencyEnd":42,"duration":0.24,"gain":0.24},
+    "goal":{"wave":"sine","frequency":523.25,"frequencyEnd":783.99,"duration":0.42,"gain":0.16},
+    "uiClick":{"wave":"square","frequency":410,"frequencyEnd":330,"duration":0.035,"gain":0.05}
+  }
+}

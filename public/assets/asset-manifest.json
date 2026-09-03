@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "unit": "meter",
+  "upAxis": "Y",
+  "assets": [
+    {"id":"block.cube","file":"assets/models/block_cube.gltf","type":"block","collision":"BOX"},
+    {"id":"block.long","file":"assets/models/block_long.gltf","type":"block","collision":"BOX"},
+    {"id":"block.plank","file":"assets/models/block_plank.gltf","type":"block","collision":"BOX"},
+    {"id":"block.pillar","file":"assets/models/block_pillar.gltf","type":"block","collision":"BOX"},
+    {"id":"block.slab","file":"assets/models/block_slab.gltf","type":"block","collision":"BOX"},
+    {"id":"block.rod","file":"assets/models/block_rod.gltf","type":"block","collision":"BOX"},
+    {"id":"block.wedge","file":"assets/models/block_wedge.gltf","type":"block","collision":"CONVEX_HULL"},
+    {"id":"block.cylinder","file":"assets/models/block_cylinder.gltf","type":"block","collision":"CYLINDER"},
+    {"id":"bumper.round","file":"assets/models/bumper_round.gltf","type":"interactive","collision":"CYLINDER"},
+    {"id":"platform.square","file":"assets/models/platform_square.gltf","type":"platform","collision":"BOX"},
+    {"id":"platform.round","file":"assets/models/platform_round.gltf","type":"platform","collision":"CYLINDER"},
+    {"id":"projectile.ball","file":"assets/models/projectile_ball.gltf","type":"projectile","collision":"SPHERE"},
+    {"id":"projectile.heavy","file":"assets/models/projectile_heavy_ball.gltf","type":"projectile","collision":"SPHERE"},
+    {"id":"projectile.pulse","file":"assets/models/projectile_pulse_capsule.gltf","type":"projectile","collision":"CAPSULE"},
+    {"id":"goal.energyCore","file":"assets/models/goal_energy_core.gltf","type":"goal","collision":"SPHERE"},
+    {"id":"target.totem","file":"assets/models/target_totem.gltf","type":"target","collision":"COMPOUND"},
+    {"id":"structure.arch","file":"assets/models/structure_arch.gltf","type":"structure","collision":"COMPOUND_BOXES"},
+    {"id":"breakable.column","file":"assets/models/breakable_column.gltf","type":"breakable","collision":"5xBOX"},
+    {"id":"spinner.cross","file":"assets/models/spinner_cross.gltf","type":"interactive","collision":"COMPOUND_BOXES"}
+  ]
+}
