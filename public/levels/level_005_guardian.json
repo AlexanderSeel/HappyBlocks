@@ -1,8 +1,10 @@
 {
   "id":"prototype-005","name":"Guardian","mode":"protect",
   "arena":{"platform":"platform.round","gravity":[0,-9.81,0]},
+  "environment":{"skybox":"aurora_night","intensity":0.96,"rotationY":0.9},
   "camera":{"target":[0,1.6,0.7],"alpha":-1.48,"beta":1.08,"radius":13.5,"minRadius":8,"maxRadius":19},
   "inventory":{"projectile.ball":2,"projectile.heavy":1,"projectile.pulse":1},
+  "projectileSkins":{"projectile.ball":"ceramic","projectile.heavy":"concrete","projectile.pulse":"ceramic"},
   "entities":[
     {"id":"guardL","asset":"block.pillar","material":"stone","position":[-0.72,1.05,0.4],"motion":"DYNAMIC"},
     {"id":"guardR","asset":"block.pillar","material":"stone","position":[0.72,1.05,0.4],"motion":"DYNAMIC"},
