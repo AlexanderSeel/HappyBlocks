@@ -1,8 +1,10 @@
 {
   "id":"prototype-003","name":"Ricochet Lab","mode":"chainReaction",
   "arena":{"platform":"platform.round","gravity":[0,-9.81,0]},
+  "environment":{"skybox":"neon_twilight","intensity":1.08,"rotationY":0.6},
   "camera":{"target":[0,1.3,0.6],"alpha":-1.45,"beta":1.08,"radius":13,"minRadius":8,"maxRadius":18},
   "inventory":{"projectile.ball":2,"projectile.heavy":1,"projectile.pulse":1},
+  "projectileSkins":{"projectile.ball":"chrome","projectile.heavy":"concrete","projectile.pulse":"ceramic"},
   "entities":[
     {"id":"bumperL","asset":"bumper.round","material":"rubber","position":[-1.55,1.05,-0.45],"motion":"STATIC","tags":["bumper"]},
     {"id":"bumperR","asset":"bumper.round","material":"rubber","position":[1.55,1.05,0.55],"motion":"STATIC","tags":["bumper"]},
