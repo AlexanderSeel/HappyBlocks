@@ -4,7 +4,9 @@ import "./editor-rules.css";
 import "./ui-kit.css";
 import "@babylonjs/loaders/glTF";
 import { HappyBlocksGame } from "./game/HappyBlocksGame";
+import { installEditorGeneratorAdvancedPanel } from "./game/editor/EditorGeneratorAdvancedPanel";
 import { installEditorLevelSettingsPanel } from "./game/editor/EditorLevelSettingsPanel";
+import { installEditorProjectileSkinPanel } from "./game/editor/EditorProjectileSkinPanel";
 import { installEditorRulesPanel } from "./game/editor/EditorRulesPanel";
 import { installEditorScoringPanel } from "./game/editor/EditorScoringPanel";
 import { installEditorStructurePalette } from "./game/editor/EditorStructurePalette";
@@ -37,8 +39,10 @@ for (const button of levelButtons) {
 }
 
 await game.start(levelUrls[0]);
+installEditorGeneratorAdvancedPanel();
 installEditorStructurePalette();
 installEditorRulesPanel();
 installEditorLevelSettingsPanel();
+installEditorProjectileSkinPanel();
 installEditorScoringPanel();
 window.addEventListener("beforeunload", () => game.dispose(), { once: true });
