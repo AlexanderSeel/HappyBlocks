@@ -1,8 +1,18 @@
 import { Color3, PBRMaterial, Scene } from "@babylonjs/core";
+import { getActiveEnvironment } from "../levels/LevelPresentation";
 import { createProjectileMaterials } from "./ProjectileMaterialFactory";
+import { applySceneEnvironment } from "./SceneEnvironment";
 import { createTextureKits, type TextureKit } from "./TextureKitFactory";
 
 export type MaterialLibrary = Record<string, PBRMaterial>;
+
+function constrainedDevice(): boolean {
+  if (typeof window === "undefined") return false;
+  return (
+    window.matchMedia("(max-width: 900px)").matches ||
+    window.matchMedia("(pointer: coarse)").matches
+  );
+}
 
 function pbr(
   scene: Scene,
@@ -34,6 +44,7 @@ function pbr(
 }
 
 export function createMaterialLibrary(scene: Scene): MaterialLibrary {
+  applySceneEnvironment(scene, getActiveEnvironment(), constrainedDevice());
   const kits = createTextureKits(scene);
   const projectile = createProjectileMaterials(scene);
   return {
@@ -45,7 +56,6 @@ export function createMaterialLibrary(scene: Scene): MaterialLibrary {
     ceramic_cyan: pbr(scene, "ceramic_cyan", kits.ceramic, "#28c8e6", 1, 1),
     ceramic_amber: pbr(scene, "ceramic_amber", kits.ceramic, "#f2ad42", 1, 1),
     ceramic_violet: pbr(scene, "ceramic_violet", kits.ceramic, "#8c69e8", 1, 1),
-    projectile: projectile.chrome,
     projectile_chrome: projectile.chrome,
     projectile_rubber: projectile.rubber,
     projectile_concrete: projectile.concrete,
