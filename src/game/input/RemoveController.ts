@@ -6,6 +6,7 @@ import {
   Vector3,
 } from "@babylonjs/core";
 import type { RuntimeEntity } from "../BlockFactory";
+import { armInitialPhysics } from "../physics/InitialPhysicsStabilizer";
 
 export interface RemoveEvents {
   canRemove: (entity: RuntimeEntity) => boolean;
@@ -64,6 +65,7 @@ export class RemoveController {
       return;
     }
 
+    armInitialPhysics(this.scene);
     this.events.onRemove(
       entity,
       pick?.pickedPoint?.clone() ?? entity.mesh.position.clone(),
