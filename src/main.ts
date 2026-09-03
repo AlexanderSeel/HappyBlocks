@@ -1,4 +1,5 @@
 import "./styles.css";
+import "./editor.css";
 import "@babylonjs/loaders/glTF";
 import { HappyBlocksGame } from "./game/HappyBlocksGame";
 

@@ -20,6 +20,7 @@ import { AudioFx } from "./AudioFx";
 import { ASSETS } from "./AssetDefinitions";
 import { BlockFactory, type RuntimeEntity } from "./BlockFactory";
 import { PhysicsDebugOverlay } from "./debug/PhysicsDebugOverlay";
+import { LevelEditorPanel } from "./editor/LevelEditorPanel";
 import { spawnImpactBurst } from "./effects/ImpactBurst";
 import { spawnPulseWave } from "./effects/PulseWave";
 import { RemoveController } from "./input/RemoveController";
@@ -66,6 +67,7 @@ export class HappyBlocksGame {
   private readonly progress = new ProgressStore();
   private readonly profile: DeviceProfile;
   private readonly debug: PhysicsDebugOverlay;
+  private readonly editor: LevelEditorPanel;
 
   private scene: Scene | null = null;
   private materials: MaterialLibrary | null = null;
@@ -74,6 +76,7 @@ export class HappyBlocksGame {
   private level: HappyBlocksLevel | null = null;
   private currentLevelUrl = "";
   private levelSequence: string[] = [];
+  private editorPreview = false;
   private entities: RuntimeEntity[] = [];
   private platform: { mesh: Mesh; aggregate: PhysicsAggregate } | null = null;
   private throwController: ThrowController | null = null;
@@ -103,6 +106,10 @@ export class HappyBlocksGame {
     });
     applyDeviceProfile(this.engine, this.profile);
     this.debug = new PhysicsDebugOverlay(this.engine);
+    this.editor = new LevelEditorPanel({
+      onPreview: (level) => this.previewLevelData(level),
+      onRestore: () => this.restoreAuthoredLevel(),
+    });
 
     window.addEventListener("resize", this.resize);
     window.addEventListener("keydown", this.keydown);
@@ -142,8 +149,31 @@ export class HappyBlocksGame {
 
     const level = await fetchLevel(levelUrl);
     this.currentLevelUrl = levelUrl;
+    this.editorPreview = false;
     this.level = level;
     await this.buildScene(level);
+    this.editor.setLevel(level);
+  }
+
+  private async previewLevelData(level: HappyBlocksLevel): Promise<void> {
+    this.editorPreview = true;
+    this.level = this.cloneLevel(level);
+    await this.buildScene(this.level);
+  }
+
+  private async restoreAuthoredLevel(): Promise<void> {
+    if (!this.currentLevelUrl) {
+      return;
+    }
+    const level = await fetchLevel(this.currentLevelUrl);
+    this.editorPreview = false;
+    this.level = level;
+    await this.buildScene(level);
+    this.editor.setLevel(level);
+  }
+
+  private cloneLevel(level: HappyBlocksLevel): HappyBlocksLevel {
+    return JSON.parse(JSON.stringify(level)) as HappyBlocksLevel;
   }
 
   private async loadNextLevel(): Promise<void> {
@@ -287,7 +317,9 @@ export class HappyBlocksGame {
       );
     }
 
-    this.hud.setLevel(level.name);
+    this.hud.setLevel(
+      this.editorPreview ? `${level.name} · EDITOR PREVIEW` : level.name,
+    );
     this.hud.setCombo(0);
     this.hud.setScore(this.score());
     this.syncLevelButtons();
@@ -402,7 +434,13 @@ export class HappyBlocksGame {
     const source = entity.source;
 
     if (this.scene) {
-      spawnImpactBurst(this.scene, position, impulse, "dust", this.profile.effectScale);
+      spawnImpactBurst(
+        this.scene,
+        position,
+        impulse,
+        "dust",
+        this.profile.effectScale,
+      );
     }
     entity.disposeVisual();
     entity.aggregate.dispose();
@@ -680,7 +718,7 @@ export class HappyBlocksGame {
     const projectileBodies = this.throwController?.getBodies() ?? [];
     this.debug.update({
       level: this.level.name,
-      mode: this.level.mode,
+      mode: this.editorPreview ? `${this.level.mode} / editor` : this.level.mode,
       bodies: [...entityBodies, ...projectileBodies],
       entities: this.entities.length,
       projectiles: projectileBodies.length,
@@ -699,15 +737,21 @@ export class HappyBlocksGame {
     this.completed = true;
     const score = this.score();
     const stars = this.starsForScore(score);
-    this.progress.recordResult(this.currentLevelUrl, score, stars);
-    this.syncLevelButtons();
+    if (!this.editorPreview) {
+      this.progress.recordResult(this.currentLevelUrl, score, stars);
+      this.syncLevelButtons();
+    }
     const currentIndex = this.levelSequence.indexOf(this.currentLevelUrl);
     const nextUrl = currentIndex >= 0 ? this.levelSequence[currentIndex + 1] : undefined;
     const hasNext = Boolean(
-      nextUrl && this.progress.isUnlocked(this.levelSequence, nextUrl),
+      !this.editorPreview &&
+        nextUrl &&
+        this.progress.isUnlocked(this.levelSequence, nextUrl),
     );
     this.hud.setStatus(
-      `Structure solved · ${score.toLocaleString()} points`,
+      this.editorPreview
+        ? `Editor preview solved · ${score.toLocaleString()} points`
+        : `Structure solved · ${score.toLocaleString()} points`,
       "win",
     );
     this.hud.showResult(score, stars, hasNext);
@@ -929,6 +973,17 @@ export class HappyBlocksGame {
   private readonly resize = (): void => this.engine.resize();
 
   private readonly keydown = (event: KeyboardEvent): void => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "e") {
+      event.preventDefault();
+      this.editor.toggle();
+      return;
+    }
+
+    if (event.key === "Escape" && this.editor.isOpen()) {
+      this.editor.close();
+      return;
+    }
+
     if (event.key === "F3") {
       event.preventDefault();
       this.debug.toggle();
@@ -940,7 +995,7 @@ export class HappyBlocksGame {
       return;
     }
 
-    if (this.level?.mode === "remove") {
+    if (this.level?.mode === "remove" || this.editor.isOpen()) {
       return;
     }
 
@@ -966,6 +1021,7 @@ export class HappyBlocksGame {
     this.removeController?.dispose();
     this.visuals?.dispose();
     this.scene?.dispose();
+    this.editor.dispose();
     this.debug.dispose();
     this.audio.dispose();
     this.engine.dispose();

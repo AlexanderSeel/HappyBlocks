@@ -52,18 +52,20 @@ Build a browser-first 3D physics puzzle game centered on tactile block structure
 - [x] Safe-area/touch-size UI and optional vibration feedback.
 - [x] Reduced-motion-aware visual effects.
 - [x] F3 developer physics/performance overlay.
+- [x] Level editor foundation: transform form, full JSON editing, import/export and deterministic Preview/Restore.
 - [x] Five progressive prototype levels.
 - [x] Original prototype model/UI/texture/effect asset library.
 - [x] GitHub Actions typecheck/build workflow.
 
 ## Next implementation block
-1. Add in-browser level editor with transform gizmos and JSON import/export.
-2. Add broader authored level pack with progressive mechanics and world grouping.
-3. Add production audio assets and adaptive mix snapshots.
-4. Add user-facing accessibility/settings panel for camera motion, effects, vibration and input sensitivity.
-5. Add optional WebGPU quality path and richer post-processing.
-6. Add automated level/schema tests and physics smoke tests.
-7. Add PWA/offline packaging and install metadata.
+1. Add Babylon transform gizmos, editor selection highlighting and pause/isolation mode.
+2. Add entity create/duplicate/delete and asset/material palette to the editor.
+3. Add broader authored level pack with progressive mechanics and world grouping.
+4. Add production audio assets and adaptive mix snapshots.
+5. Add user-facing accessibility/settings panel for camera motion, effects, vibration and input sensitivity.
+6. Add optional WebGPU quality path and richer post-processing.
+7. Add automated level/schema tests and physics smoke tests.
+8. Add PWA/offline packaging and install metadata.
 
 ## Asset set
 The prototype pack contains structural blocks, cylinder/wedge pieces, platforms, standard/heavy/pulse projectiles, goal core, target totem, bumper, spinner, arch and segmented column. Production art can replace visuals without changing canonical physics dimensions.
