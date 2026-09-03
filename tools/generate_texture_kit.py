@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
-"""Generate standalone HappyBlocks HD WebP PBR texture kits.
+"""Generate deterministic standalone HappyBlocks WebP PBR texture kits.
 
-Output convention:
-- *_basecolor.webp: 2048 x 2048, sRGB
-- *_normal.webp: 1024 x 1024, tangent-space normal RGB
-- *_orm.webp: 1024 x 1024, R=AO G=roughness B=metallic
-- energy_emissive.webp: 1024 x 1024, sRGB emissive
+Profiles:
+- HD: base color 2048²; normal/ORM/emissive 1024²
+- mobile: base color 1024²; normal/ORM/emissive 512²
 
-The generator is deliberately deterministic so the checked-in assets can always
-be recreated and reviewed from source.
+ORM convention: R=ambient occlusion, G=roughness, B=metallic.
 """
 
 from __future__ import annotations
@@ -17,17 +14,35 @@ import json
 import math
 import random
 from pathlib import Path
+
 from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "public" / "assets" / "textures" / "pbr"
+MOBILE = OUT / "mobile"
 BASE = 2048
 MAP = 1024
+MOBILE_BASE = 1024
+MOBILE_MAP = 512
+MATERIALS = ("wood", "stone", "metal", "rubber", "ceramic", "energy")
+
+
+def _target_for(name: str, mobile: bool) -> int:
+    base_color = "_basecolor." in name
+    if mobile:
+        return MOBILE_BASE if base_color else MOBILE_MAP
+    return BASE if base_color else MAP
 
 
 def save(image: Image.Image, name: str, quality: int = 88) -> None:
     OUT.mkdir(parents=True, exist_ok=True)
-    image.save(OUT / name, "WEBP", quality=quality, method=4)
+    MOBILE.mkdir(parents=True, exist_ok=True)
+    hd_target = _target_for(name, False)
+    mobile_target = _target_for(name, True)
+    hd = image if image.size == (hd_target, hd_target) else image.resize((hd_target, hd_target), Image.Resampling.LANCZOS)
+    mobile = hd.resize((mobile_target, mobile_target), Image.Resampling.LANCZOS)
+    hd.save(OUT / name, "WEBP", quality=quality, method=4)
+    mobile.save(MOBILE / name, "WEBP", quality=max(82, quality - 2), method=4)
 
 
 def gradient(size: int, start: tuple[int, int, int], end: tuple[int, int, int], horizontal: bool = True) -> Image.Image:
@@ -55,36 +70,25 @@ def solid_normal() -> Image.Image:
 def make_wood() -> None:
     image = gradient(BASE, (86, 46, 21), (194, 126, 58))
     draw = ImageDraw.Draw(image, "RGBA")
-    randomizer = random.Random(101)
+    rng = random.Random(101)
     for index in range(190):
         y = (index + 1) * BASE / 191
         amplitude = 5 + (index % 7) * 2
-        phase = randomizer.random() * math.tau
-        points = [
-            (x, y + math.sin(x / 105 + phase) * amplitude)
-            for x in range(0, BASE + 1, 40)
-        ]
-        color = (48, 24, 10, 65 if index % 3 else 100)
-        draw.line(points, fill=color, width=1 + int(index % 3 == 0))
+        phase = rng.random() * math.tau
+        points = [(x, y + math.sin(x / 105 + phase) * amplitude) for x in range(0, BASE + 1, 40)]
+        draw.line(points, fill=(48, 24, 10, 65 if index % 3 else 100), width=1 + int(index % 3 == 0))
     for knot in range(9):
         cx = 150 + knot * 218
         cy = 250 + (knot % 3) * 555
         for radius in range(18, 100, 16):
-            draw.ellipse(
-                (cx - radius * 2, cy - radius, cx + radius * 2, cy + radius),
-                outline=(55, 25, 10, 105),
-                width=2,
-            )
+            draw.ellipse((cx - radius * 2, cy - radius, cx + radius * 2, cy + radius), outline=(55, 25, 10, 105), width=2)
     save(image, "wood_basecolor.webp", 86)
 
     normal = solid_normal()
     draw = ImageDraw.Draw(normal)
     for index in range(115):
         y = (index + 1) * MAP / 116
-        points = [
-            (x, y + math.sin(x / 55 + index * 0.7) * (2 + index % 6))
-            for x in range(0, MAP + 1, 28)
-        ]
+        points = [(x, y + math.sin(x / 55 + index * 0.7) * (2 + index % 6)) for x in range(0, MAP + 1, 28)]
         draw.line(points, fill=(120 + (index % 3) * 6, 126, 248), width=1)
     save(normal, "wood_normal.webp", 90)
 
@@ -98,48 +102,35 @@ def make_wood() -> None:
 def make_stone() -> None:
     image = gradient(BASE, (126, 134, 138), (171, 179, 182), False)
     draw = ImageDraw.Draw(image, "RGBA")
-    randomizer = random.Random(202)
+    rng = random.Random(202)
     for _ in range(600):
-        x = randomizer.randrange(BASE)
-        y = randomizer.randrange(BASE)
-        width = randomizer.randrange(3, 18)
-        value = 85 + randomizer.randrange(80)
+        x, y = rng.randrange(BASE), rng.randrange(BASE)
+        width = rng.randrange(3, 18)
+        value = 85 + rng.randrange(80)
         draw.rectangle((x, y, x + width, y + width), fill=(value, value + 3, value + 5, 45))
     for _ in range(36):
-        x = randomizer.randrange(BASE)
-        y = randomizer.randrange(BASE)
+        x, y = rng.randrange(BASE), rng.randrange(BASE)
         points = [(x, y)]
         for __ in range(7):
-            x += randomizer.randrange(-50, 51)
-            y += randomizer.randrange(10, 65)
+            x += rng.randrange(-50, 51)
+            y += rng.randrange(10, 65)
             points.append((x, y))
         draw.line(points, fill=(48, 55, 58, 100), width=2)
     save(image, "stone_basecolor.webp", 86)
 
     normal = solid_normal()
     draw = ImageDraw.Draw(normal)
-    randomizer = random.Random(203)
+    rng = random.Random(203)
     for index in range(520):
-        x = randomizer.randrange(MAP)
-        y = randomizer.randrange(MAP)
-        size = randomizer.randrange(1, 7)
+        x, y = rng.randrange(MAP), rng.randrange(MAP)
+        size = rng.randrange(1, 7)
         draw.rectangle((x, y, x + size, y + size), fill=(122 + (index % 4) * 4, 126, 246 + (index % 2) * 5))
-    for _ in range(20):
-        x = randomizer.randrange(MAP)
-        y = randomizer.randrange(MAP)
-        points = [(x, y)]
-        for __ in range(5):
-            x += randomizer.randrange(-35, 36)
-            y += randomizer.randrange(8, 45)
-            points.append((x, y))
-        draw.line(points, fill=(112, 133, 244), width=2)
     save(normal, "stone_normal.webp", 90)
 
     orm = Image.new("RGB", (MAP, MAP), (225, 207, 4))
     draw = ImageDraw.Draw(orm)
     for index in range(110):
-        x = (index * 97) % MAP
-        y = (index * 173) % MAP
+        x, y = (index * 97) % MAP, (index * 173) % MAP
         draw.rectangle((x, y, x + 8, y + 8), fill=(215, 220, 4))
     save(orm, "stone_orm.webp", 92)
 
@@ -150,13 +141,8 @@ def make_metal() -> None:
     for x in range(0, BASE, 5):
         draw.line((x, 0, x, BASE), fill=(230, 242, 245, 30 if x % 20 else 70), width=1)
     for index in range(90):
-        y = (index * 151) % BASE
-        x = (index * 283) % BASE
-        draw.line(
-            (x, y, min(BASE, x + 220 + (index % 5) * 60), y + (index % 5) - 2),
-            fill=(238, 246, 248, 55),
-            width=1,
-        )
+        y, x = (index * 151) % BASE, (index * 283) % BASE
+        draw.line((x, y, min(BASE, x + 220 + (index % 5) * 60), y + (index % 5) - 2), fill=(238, 246, 248, 55), width=1)
     save(image, "metal_basecolor.webp", 90)
 
     normal = solid_normal()
@@ -192,11 +178,10 @@ def make_rubber() -> None:
 def make_ceramic() -> None:
     image = gradient(BASE, (248, 250, 250), (198, 210, 212), False)
     draw = ImageDraw.Draw(image, "RGBA")
-    randomizer = random.Random(504)
+    rng = random.Random(504)
     for _ in range(650):
-        x = randomizer.randrange(BASE)
-        y = randomizer.randrange(BASE)
-        radius = 1 + randomizer.randrange(2)
+        x, y = rng.randrange(BASE), rng.randrange(BASE)
+        radius = 1 + rng.randrange(2)
         draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=(110, 125, 130, 40))
     save(image, "ceramic_basecolor.webp", 90)
 
@@ -216,11 +201,7 @@ def make_energy() -> None:
         draw.line((index * cell, 0, index * cell, BASE), fill=(90, 235, 255, 120), width=3)
         draw.line((0, index * cell, BASE, index * cell), fill=(90, 235, 255, 120), width=3)
     for radius in range(100, 900, 100):
-        draw.ellipse(
-            (BASE // 2 - radius, BASE // 2 - radius, BASE // 2 + radius, BASE // 2 + radius),
-            outline=(255, 184, 65, 95),
-            width=3,
-        )
+        draw.ellipse((BASE // 2 - radius, BASE // 2 - radius, BASE // 2 + radius, BASE // 2 + radius), outline=(255, 184, 65, 95), width=3)
     save(image, "energy_basecolor.webp", 90)
 
     normal = solid_normal()
@@ -238,12 +219,37 @@ def make_energy() -> None:
         draw.line((index * cell, 0, index * cell, MAP), fill=(75, 228, 255), width=2)
         draw.line((0, index * cell, MAP, index * cell), fill=(75, 228, 255), width=2)
     for radius in range(50, 460, 52):
-        draw.ellipse(
-            (MAP // 2 - radius, MAP // 2 - radius, MAP // 2 + radius, MAP // 2 + radius),
-            outline=(255, 180, 55),
-            width=2,
-        )
+        draw.ellipse((MAP // 2 - radius, MAP // 2 - radius, MAP // 2 + radius, MAP // 2 + radius), outline=(255, 180, 55), width=2)
     save(emissive, "energy_emissive.webp", 92)
+
+
+def material_maps(material: str, prefix: str = "") -> dict[str, str]:
+    maps = {
+        "baseColor": f"{prefix}{material}_basecolor.webp",
+        "normal": f"{prefix}{material}_normal.webp",
+        "orm": f"{prefix}{material}_orm.webp",
+    }
+    if material == "energy":
+        maps["emissive"] = f"{prefix}energy_emissive.webp"
+    return maps
+
+
+def write_manifest() -> None:
+    manifest = {
+        "version": 2,
+        "ormChannels": {"r": "ambientOcclusion", "g": "roughness", "b": "metallic"},
+        "profiles": {
+            "hd": {
+                "resolution": {"baseColor": BASE, "normal": MAP, "orm": MAP, "emissive": MAP},
+                "materials": {material: material_maps(material) for material in MATERIALS},
+            },
+            "mobile": {
+                "resolution": {"baseColor": MOBILE_BASE, "normal": MOBILE_MAP, "orm": MOBILE_MAP, "emissive": MOBILE_MAP},
+                "materials": {material: material_maps(material, "mobile/") for material in MATERIALS},
+            },
+        },
+    }
+    (OUT / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
 
 def main() -> None:
@@ -253,22 +259,10 @@ def main() -> None:
     make_rubber()
     make_ceramic()
     make_energy()
-    manifest = {
-        "version": 1,
-        "resolution": {"baseColor": 2048, "normal": 1024, "orm": 1024, "emissive": 1024},
-        "ormChannels": {"r": "ambientOcclusion", "g": "roughness", "b": "metallic"},
-        "materials": {
-            material: {
-                "baseColor": f"{material}_basecolor.webp",
-                "normal": f"{material}_normal.webp",
-                "orm": f"{material}_orm.webp",
-                **({"emissive": "energy_emissive.webp"} if material == "energy" else {}),
-            }
-            for material in ["wood", "stone", "metal", "rubber", "ceramic", "energy"]
-        },
-    }
-    (OUT / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-    print(f"Generated {len(list(OUT.glob('*.webp')))} WebP maps in {OUT}")
+    write_manifest()
+    hd_count = len(list(OUT.glob("*.webp")))
+    mobile_count = len(list(MOBILE.glob("*.webp")))
+    print(f"Generated {hd_count} HD + {mobile_count} mobile WebP maps in {OUT}")
 
 
 if __name__ == "__main__":
