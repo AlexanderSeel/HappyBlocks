@@ -1,8 +1,10 @@
 {
   "id":"prototype-002","name":"Crossfire","mode":"chainReaction",
   "arena":{"platform":"platform.round","gravity":[0,-9.81,0]},
+  "environment":{"skybox":"sunset_foundry","intensity":1.12,"rotationY":-0.35},
   "camera":{"target":[0,1.4,0],"alpha":-1.2,"beta":1.1,"radius":13},
   "inventory":{"projectile.ball":2,"projectile.heavy":1,"projectile.pulse":1},
+  "projectileSkins":{"projectile.ball":"rubber","projectile.heavy":"concrete","projectile.pulse":"ceramic"},
   "entities":[
     {"id":"towerA","asset":"breakable.column","material":"ceramic_cyan","position":[-2,1.25,0],"motion":"DYNAMIC","breakThreshold":7.5},
     {"id":"towerB","asset":"breakable.column","material":"ceramic_amber","position":[2,1.25,0],"motion":"DYNAMIC","breakThreshold":7.5},
