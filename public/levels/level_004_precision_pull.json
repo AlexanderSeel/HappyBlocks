@@ -1,6 +1,7 @@
 {
   "id":"prototype-004","name":"Precision Pull","mode":"remove",
   "arena":{"platform":"platform.square","gravity":[0,-9.81,0]},
+  "environment":{"skybox":"stormfront","intensity":0.9,"rotationY":-0.75},
   "camera":{"target":[0,1.3,0],"alpha":-1.55,"beta":1.12,"radius":11,"minRadius":7,"maxRadius":16},
   "inventory":{},
   "actions":{"removes":3},
