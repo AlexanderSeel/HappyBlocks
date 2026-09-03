@@ -1,12 +1,11 @@
 import "./styles.css";
 import "./editor.css";
+import "./ui-kit.css";
 import "@babylonjs/loaders/glTF";
 import { HappyBlocksGame } from "./game/HappyBlocksGame";
 
 const canvas = document.querySelector<HTMLCanvasElement>("#game-canvas");
-if (!canvas) {
-  throw new Error("#game-canvas was not found");
-}
+if (!canvas) throw new Error("#game-canvas was not found");
 
 const levelUrls = [
   "/levels/level_001_first_collapse.json",
@@ -14,20 +13,16 @@ const levelUrls = [
   "/levels/level_003_ricochet_lab.json",
   "/levels/level_004_precision_pull.json",
   "/levels/level_005_guardian.json",
+  "/levels/level_006_sky_citadel.json",
 ];
 const game = new HappyBlocksGame(canvas);
 game.setLevelSequence(levelUrls);
 
-const levelButtons = [
-  ...document.querySelectorAll<HTMLButtonElement>("[data-level-url]"),
-];
-
+const levelButtons = [...document.querySelectorAll<HTMLButtonElement>("[data-level-url]")];
 for (const button of levelButtons) {
   button.addEventListener("click", () => {
     const levelUrl = button.dataset.levelUrl;
-    if (!levelUrl || button.disabled) {
-      return;
-    }
+    if (!levelUrl || button.disabled) return;
     void game.loadLevel(levelUrl);
   });
 }
