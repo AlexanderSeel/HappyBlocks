@@ -5,6 +5,8 @@ import {
   DirectionalLight,
   Engine,
   HemisphericLight,
+  HingeConstraint,
+  Matrix,
   Mesh,
   MeshBuilder,
   PhysicsAggregate,
@@ -15,16 +17,29 @@ import {
 } from "@babylonjs/core";
 import { ArcRotateCameraPointersInput } from "@babylonjs/core/Cameras/Inputs/arcRotateCameraPointersInput";
 import { AudioFx } from "./AudioFx";
+import { ASSETS } from "./AssetDefinitions";
 import { BlockFactory, type RuntimeEntity } from "./BlockFactory";
 import { ThrowController } from "./input/ThrowController";
-import { loadLevel } from "./levels/loadLevel";
-import type { HappyBlocksLevel, LevelObjective } from "./levels/types";
+import { loadLevel as fetchLevel } from "./levels/loadLevel";
+import type { HappyBlocksLevel, LevelEntity, LevelObjective } from "./levels/types";
 import { initPhysics } from "./physics/initPhysics";
 import {
   createMaterialLibrary,
   type MaterialLibrary,
 } from "./rendering/materials";
-import { Hud } from "../ui/Hud";
+import { VisualAssetLibrary } from "./rendering/VisualAssetLibrary";
+import { Hud, type ProjectileHudItem } from "../ui/Hud";
+
+interface PendingBreak {
+  entity: RuntimeEntity;
+  impulse: number;
+  normal: Vector3;
+}
+
+const PROJECTILE_LABELS: Record<string, string> = {
+  "projectile.ball": "Standard",
+  "projectile.heavy": "Heavy",
+};
 
 export class HappyBlocksGame {
   private readonly engine: Engine;
@@ -33,14 +48,22 @@ export class HappyBlocksGame {
 
   private scene: Scene | null = null;
   private materials: MaterialLibrary | null = null;
+  private visuals: VisualAssetLibrary | null = null;
+  private factory: BlockFactory | null = null;
   private level: HappyBlocksLevel | null = null;
   private entities: RuntimeEntity[] = [];
   private platform: { mesh: Mesh; aggregate: PhysicsAggregate } | null = null;
   private throwController: ThrowController | null = null;
-  private shotsRemaining = 0;
+  private inventory: Record<string, number> = {};
+  private selectedProjectile = "projectile.ball";
   private shotsUsed = 0;
   private startedAt = 0;
   private completed = false;
+  private renderLoopStarted = false;
+  private settling = false;
+  private settledSince = 0;
+  private lastThrowAt = 0;
+  private readonly pendingBreaks = new Map<string, PendingBreak>();
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     this.engine = new Engine(canvas, true, {
@@ -54,9 +77,13 @@ export class HappyBlocksGame {
   }
 
   async start(levelUrl: string): Promise<void> {
-    this.level = await loadLevel(levelUrl);
-    await this.buildScene(this.level);
+    await this.loadLevel(levelUrl);
 
+    if (this.renderLoopStarted) {
+      return;
+    }
+
+    this.renderLoopStarted = true;
     this.engine.runRenderLoop(() => {
       if (!this.scene) {
         return;
@@ -67,7 +94,17 @@ export class HappyBlocksGame {
     });
   }
 
+  async loadLevel(levelUrl: string): Promise<void> {
+    const level = await fetchLevel(levelUrl);
+    this.level = level;
+    await this.buildScene(level);
+  }
+
   private async buildScene(level: HappyBlocksLevel): Promise<void> {
+    this.throwController?.dispose();
+    this.throwController = null;
+    this.visuals?.dispose();
+    this.visuals = null;
     this.scene?.dispose();
 
     const scene = new Scene(this.engine);
@@ -116,34 +153,46 @@ export class HappyBlocksGame {
     this.materials = createMaterialLibrary(scene);
     this.createArena(shadows);
 
-    const factory = new BlockFactory(scene, this.materials);
-    this.entities = level.entities.map((entity) => factory.create(entity));
-    this.entities.forEach((entity) => shadows.addShadowCaster(entity.mesh));
+    this.visuals = new VisualAssetLibrary(scene);
+    const modelUrls = [
+      ...level.entities.map((entity) => ASSETS[entity.asset]?.model),
+      ...Object.keys(level.inventory).map((assetId) => ASSETS[assetId]?.model),
+    ].filter((value): value is string => Boolean(value));
+    await this.visuals.preload(modelUrls);
 
-    this.shotsRemaining = level.inventory["projectile.ball"] ?? 0;
+    this.factory = new BlockFactory(scene, this.materials, this.visuals);
+    this.entities = level.entities.map((entity) => this.factory!.create(entity));
+    this.entities.forEach((entity) => this.addShadowCasters(shadows, entity));
+    this.wireBreakables();
+    this.createMechanisms();
+
+    this.inventory = { ...level.inventory };
+    this.selectedProjectile = this.projectileIds()[0] ?? "projectile.ball";
     this.shotsUsed = 0;
     this.completed = false;
     this.startedAt = performance.now();
+    this.settling = false;
+    this.settledSince = 0;
+    this.lastThrowAt = 0;
+    this.pendingBreaks.clear();
 
     this.throwController = new ThrowController(
       scene,
       this.canvas,
       this.materials,
       {
-        canThrow: () => !this.completed && this.shotsRemaining > 0,
+        canThrow: () =>
+          !this.completed && (this.inventory[this.selectedProjectile] ?? 0) > 0,
+        getProjectileAsset: () => this.selectedProjectile,
         onAim: (power) => this.hud.setPower(power),
-        onThrow: () => {
-          this.shotsRemaining -= 1;
-          this.shotsUsed += 1;
-          this.hud.setShots(this.shotsRemaining);
-          this.hud.setStatus("Impact incoming…");
-          this.audio.play("throw");
-        },
+        onThrow: (assetId) => this.onThrow(assetId),
+        onImpact: (_assetId, impulse) => this.onProjectileImpact(impulse),
       },
+      this.visuals,
     );
 
     this.hud.setLevel(level.name);
-    this.hud.setShots(this.shotsRemaining);
+    this.refreshProjectileHud();
     this.hud.setScore(this.score());
     this.hud.setStatus("Drag backward, aim, release.");
   }
@@ -182,11 +231,184 @@ export class HappyBlocksGame {
     shadows.addShadowCaster(ring);
   }
 
+  private addShadowCasters(shadows: ShadowGenerator, entity: RuntimeEntity): void {
+    if (entity.visualMeshes.length > 0) {
+      entity.visualMeshes.forEach((mesh) => shadows.addShadowCaster(mesh));
+      return;
+    }
+    shadows.addShadowCaster(entity.mesh);
+  }
+
+  private wireBreakables(): void {
+    for (const entity of this.entities) {
+      const threshold = entity.source.breakThreshold;
+      if (!entity.dynamic || threshold === undefined) {
+        continue;
+      }
+
+      entity.aggregate.body.setCollisionCallbackEnabled(true);
+      entity.aggregate.body.getCollisionObservable().add((collision) => {
+        if (entity.broken || collision.impulse < threshold) {
+          return;
+        }
+
+        const current = this.pendingBreaks.get(entity.id);
+        if (current && current.impulse >= collision.impulse) {
+          return;
+        }
+
+        this.pendingBreaks.set(entity.id, {
+          entity,
+          impulse: collision.impulse,
+          normal: collision.normal?.clone() ?? Vector3.Up(),
+        });
+      });
+    }
+  }
+
+  private flushBreaks(): void {
+    if (this.pendingBreaks.size === 0 || !this.factory) {
+      return;
+    }
+
+    const pending = [...this.pendingBreaks.values()];
+    this.pendingBreaks.clear();
+
+    for (const request of pending) {
+      this.breakEntity(request);
+    }
+  }
+
+  private breakEntity(request: PendingBreak): void {
+    const { entity, impulse, normal } = request;
+    if (entity.broken || !this.factory) {
+      return;
+    }
+
+    entity.broken = true;
+    const position = entity.mesh.position.clone();
+    const rotation = entity.mesh.rotationQuaternion?.clone();
+    const euler = rotation?.toEulerAngles() ?? entity.mesh.rotation.clone();
+    const linearVelocity = entity.aggregate.body.getLinearVelocity();
+    const angularVelocity = entity.aggregate.body.getAngularVelocity();
+    const source = entity.source;
+
+    entity.disposeVisual();
+    entity.aggregate.dispose();
+    entity.mesh.dispose();
+    this.entities = this.entities.filter((candidate) => candidate !== entity);
+
+    const rotationMatrix = rotation ? Matrix.FromQuaternion(rotation) : Matrix.Identity();
+    const offsets = [-0.92, -0.46, 0, 0.46, 0.92];
+
+    offsets.forEach((offset, index) => {
+      const localOffset = new Vector3(0, offset, 0);
+      const worldOffset = Vector3.TransformNormal(localOffset, rotationMatrix);
+      const segmentPosition = position.add(worldOffset);
+      const segmentSource: LevelEntity = {
+        id: `${source.id}-fragment-${index + 1}`,
+        asset: "block.cube",
+        material: source.material,
+        position: [segmentPosition.x, segmentPosition.y, segmentPosition.z],
+        rotation: [euler.x, euler.y, euler.z],
+        scale: [0.72, 0.42, 0.72],
+        motion: "DYNAMIC",
+        tags: [...(source.tags ?? []), "debris"],
+        massScale: 0.38,
+      };
+      const fragment = this.factory!.create(segmentSource);
+      const radial = new Vector3(
+        Math.cos(index * 2.3),
+        0.24 + index * 0.025,
+        Math.sin(index * 2.3),
+      )
+        .normalize()
+        .scale(Math.min(2.2, 0.18 + impulse * 0.035));
+      fragment.aggregate.body.setLinearVelocity(
+        linearVelocity.add(radial).add(normal.scale(0.08)),
+      );
+      fragment.aggregate.body.setAngularVelocity(
+        angularVelocity.add(new Vector3(0.2 * index, 0.35, -0.15 * index)),
+      );
+      this.entities.push(fragment);
+    });
+
+    this.audio.play("impactHeavy", Math.min(1.6, 0.7 + impulse / 18));
+  }
+
+  private createMechanisms(): void {
+    if (!this.scene) {
+      return;
+    }
+
+    for (const spinner of this.entities.filter(
+      (entity) => entity.source.asset === "spinner.cross",
+    )) {
+      const anchor = MeshBuilder.CreateBox(
+        `${spinner.id}-anchor`,
+        { size: 0.04 },
+        this.scene,
+      );
+      anchor.position.copyFrom(spinner.mesh.position);
+      anchor.isVisible = false;
+      const anchorAggregate = new PhysicsAggregate(
+        anchor,
+        PhysicsShapeType.BOX,
+        { mass: 0, friction: 0, restitution: 0 },
+        this.scene,
+      );
+      const hinge = new HingeConstraint(
+        Vector3.Zero(),
+        Vector3.Zero(),
+        Vector3.Up(),
+        Vector3.Up(),
+        this.scene,
+      );
+      anchorAggregate.body.addConstraint(spinner.aggregate.body, hinge);
+      spinner.aggregate.body.setAngularDamping(0.08);
+      spinner.aggregate.body.setAngularVelocity(new Vector3(0, 0.8, 0));
+    }
+  }
+
+  private onThrow(assetId: string): void {
+    this.inventory[assetId] = Math.max(0, (this.inventory[assetId] ?? 0) - 1);
+    this.shotsUsed += 1;
+    this.settling = true;
+    this.settledSince = 0;
+    this.lastThrowAt = performance.now();
+
+    if ((this.inventory[this.selectedProjectile] ?? 0) <= 0) {
+      const next = this.projectileIds().find(
+        (candidate) => (this.inventory[candidate] ?? 0) > 0,
+      );
+      if (next) {
+        this.selectedProjectile = next;
+      }
+    }
+
+    this.refreshProjectileHud();
+    this.hud.setStatus("Impact incoming…");
+    this.audio.play("throw");
+  }
+
+  private onProjectileImpact(impulse: number): void {
+    if (impulse < 1.2) {
+      return;
+    }
+
+    if (impulse >= 6) {
+      this.audio.play("impactHeavy", Math.min(1.5, 0.55 + impulse / 20));
+    } else {
+      this.audio.play("impactLight", Math.min(1.25, 0.5 + impulse / 10));
+    }
+  }
+
   private update(): void {
     if (!this.level || this.completed) {
       return;
     }
 
+    this.flushBreaks();
     this.hud.setScore(this.score());
 
     if (this.level.objectives.every((objective) => this.objective(objective))) {
@@ -199,9 +421,56 @@ export class HappyBlocksGame {
       return;
     }
 
-    if (this.shotsRemaining <= 0) {
+    if (this.updateSettledState()) {
+      return;
+    }
+
+    if (!this.settling && this.totalShotsRemaining() <= 0) {
       this.hud.setStatus("No shots left — reset and try another angle.");
     }
+  }
+
+  private updateSettledState(): boolean {
+    if (!this.settling || performance.now() - this.lastThrowAt < 350) {
+      return false;
+    }
+
+    const bodies = [
+      ...this.entities
+        .filter(
+          (entity) => entity.dynamic && entity.source.asset !== "spinner.cross",
+        )
+        .map((entity) => entity.aggregate.body),
+      ...(this.throwController?.getBodies() ?? []),
+    ];
+    const allQuiet = bodies.every(
+      (body) =>
+        body.getLinearVelocity().lengthSquared() < 0.018 &&
+        body.getAngularVelocity().lengthSquared() < 0.035,
+    );
+
+    if (!allQuiet) {
+      this.settledSince = 0;
+      return false;
+    }
+
+    if (this.settledSince === 0) {
+      this.settledSince = performance.now();
+      return false;
+    }
+
+    if (performance.now() - this.settledSince < 650) {
+      return false;
+    }
+
+    this.settling = false;
+    this.settledSince = 0;
+    this.hud.setStatus(
+      this.totalShotsRemaining() > 0
+        ? "World settled · line up the next shot."
+        : "World settled · no shots left.",
+    );
+    return true;
   }
 
   private objective(objective: LevelObjective): boolean {
@@ -228,6 +497,39 @@ export class HappyBlocksGame {
     );
   }
 
+  private projectileIds(): string[] {
+    return Object.keys(this.inventory).filter(
+      (assetId) => assetId.startsWith("projectile.") && ASSETS[assetId],
+    );
+  }
+
+  private refreshProjectileHud(): void {
+    const ids = this.projectileIds();
+    const items: ProjectileHudItem[] = ids.map((id, index) => ({
+      id,
+      label: PROJECTILE_LABELS[id] ?? id.replace("projectile.", ""),
+      count: this.inventory[id] ?? 0,
+      keyHint: String(index + 1),
+    }));
+
+    this.hud.setShots(this.totalShotsRemaining());
+    this.hud.setProjectiles(items, this.selectedProjectile, (id) => {
+      if ((this.inventory[id] ?? 0) <= 0) {
+        return;
+      }
+      this.selectedProjectile = id;
+      this.audio.play("uiClick");
+      this.refreshProjectileHud();
+    });
+  }
+
+  private totalShotsRemaining(): number {
+    return this.projectileIds().reduce(
+      (total, id) => total + (this.inventory[id] ?? 0),
+      0,
+    );
+  }
+
   private score(): number {
     if (!this.level) {
       return 0;
@@ -247,9 +549,6 @@ export class HappyBlocksGame {
     if (!this.level) {
       return;
     }
-
-    this.throwController?.dispose();
-    this.throwController = null;
     await this.buildScene(this.level);
   }
 
@@ -258,13 +557,29 @@ export class HappyBlocksGame {
   private readonly keydown = (event: KeyboardEvent): void => {
     if (event.key.toLowerCase() === "r") {
       void this.reset();
+      return;
     }
+
+    const projectileIndex = Number.parseInt(event.key, 10) - 1;
+    if (!Number.isInteger(projectileIndex) || projectileIndex < 0) {
+      return;
+    }
+
+    const assetId = this.projectileIds()[projectileIndex];
+    if (!assetId || (this.inventory[assetId] ?? 0) <= 0) {
+      return;
+    }
+
+    this.selectedProjectile = assetId;
+    this.audio.play("uiClick");
+    this.refreshProjectileHud();
   };
 
   dispose(): void {
     window.removeEventListener("resize", this.resize);
     window.removeEventListener("keydown", this.keydown);
     this.throwController?.dispose();
+    this.visuals?.dispose();
     this.scene?.dispose();
     this.audio.dispose();
     this.engine.dispose();

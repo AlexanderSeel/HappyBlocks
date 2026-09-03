@@ -16,10 +16,15 @@
           <div><small>SHOTS</small><strong id="shots">0</strong></div>
           <div><small>SCORE</small><strong id="score">0</strong></div>
         </div>
+        <div class="hud__level-select" aria-label="Prototype levels">
+          <button type="button" data-level-url="/levels/level_001_first_collapse.json" data-active="true">01 · First Collapse</button>
+          <button type="button" data-level-url="/levels/level_002_crossfire.json">02 · Crossfire</button>
+        </div>
         <div id="status" class="hud__status">Initializing Havok…</div>
+        <div id="projectile-selector" class="projectiles" aria-label="Projectile selection"></div>
         <div id="power-wrap" class="power" aria-hidden="true"><div id="power-bar" class="power__bar"></div></div>
         <div class="hud__actions"><button id="reset-button" type="button">↻ Reset</button></div>
-        <div class="hud__help">Drag left mouse / touch to aim & throw · Right mouse drag to orbit · Wheel to zoom · R to reset</div>
+        <div class="hud__help">Drag left mouse / touch to aim & throw · Right mouse drag to orbit · Wheel to zoom · 1/2 projectile · R reset</div>
       </div>
     </div>
     <script type="module" src="/src/main.ts"></script>

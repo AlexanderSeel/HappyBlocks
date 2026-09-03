@@ -13,12 +13,13 @@ Build a browser-first 3D physics puzzle game centered on tactile block structure
 
 ## Physics rules
 - Prefer BOX/SPHERE/CYLINDER/CONVEX/compound physics proxies; do not default visual meshes to triangle-mesh colliders.
+- Visual glTF geometry is independent from primitive Havok collision proxies.
 - Standard projectile radius ~0.38 m, mass ~1.8 gameplay kg.
-- Heavy projectile radius ~0.52 m.
+- Heavy projectile radius ~0.52 m, mass ~4.6 gameplay kg.
 - Gravity defaults to 9.81 m/s².
-- Enable sleeping and add a settled-world detector before turn finalization.
-- Use authored segmented breakables instead of runtime fracture for the first production version.
-- Route collision impulse/relative velocity into audio, particles, scoring and break thresholds.
+- Collision solver impulse drives impact audio and authored break thresholds.
+- Settle detection uses linear/angular velocity thresholds and a quiet-time window.
+- Use authored segmented breakables instead of runtime mesh fracture for the first production version.
 
 ## Core modes
 1. Throw — limited projectiles to collapse or displace targets.
@@ -34,26 +35,34 @@ Build a browser-first 3D physics puzzle game centered on tactile block structure
 - [x] Data-driven level loader.
 - [x] Canonical asset/collider registry.
 - [x] Physics-backed block/entity factory.
+- [x] glTF visual asset container cache and instancing/cloning.
+- [x] Primitive physics proxy separated from rendered geometry.
 - [x] First stack-collapse puzzle.
+- [x] Second chain-reaction prototype level selectable in HUD.
 - [x] Drag/release throw input.
 - [x] Ballistic trajectory preview.
-- [x] Projectile inventory.
+- [x] Standard/heavy projectile selector and per-type inventory.
 - [x] `moveBelowY` and `knockDown` objective evaluation.
 - [x] Score/HUD and fast reset.
-- [x] Procedural WebAudio throw/goal effects.
+- [x] Collision impulse routed into procedural impact audio.
+- [x] Velocity-based settled-world detection.
+- [x] Authored five-segment breakable columns.
+- [x] Havok hinge mechanism for spinner entities.
+- [x] Procedural WebAudio throw/impact/goal effects.
 - [x] Original prototype 3D model library plus icons/textures/particle presets.
 - [x] GitHub Actions typecheck/build workflow.
 
 ## Next implementation block
-1. Load glTF visuals through Babylon `AssetContainer` while retaining primitive physics proxies.
-2. Add collision impulse routing and impact audio intensity.
-3. Implement sleep/velocity-based world-settled detection.
-4. Implement segmented breakable columns.
-5. Implement hinge spinner for prototype level 002.
-6. Add standard/heavy/pulse projectile selector.
-7. Add stars/results/next-level flow.
-8. Tune touch controls and mobile performance.
-9. Add a developer level editor/physics debug overlay.
+1. Add pulse projectile with radial impulse gameplay and VFX.
+2. Add score combo accounting from distinct collision chains.
+3. Add three-star result thresholds and results/next-level flow.
+4. Add particle bursts, dust and ceramic shard visual effects.
+5. Add bumper-specific restitution and interaction effects.
+6. Add protect-zone and remove-block modes.
+7. Tune touch controls and mobile performance.
+8. Add developer physics debug overlay.
+9. Add in-browser level editor with JSON import/export.
+10. Add broader authored level pack and progression metadata.
 
 ## Asset set
 The prototype pack contains structural blocks, cylinder/wedge pieces, platforms, standard/heavy/pulse projectiles, goal core, target totem, bumper, spinner, arch and segmented column. Production art can replace visuals without changing canonical physics dimensions.

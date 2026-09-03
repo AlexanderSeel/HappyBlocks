@@ -1,3 +1,10 @@
+export interface ProjectileHudItem {
+  id: string;
+  label: string;
+  count: number;
+  keyHint: string;
+}
+
 export class Hud {
   private readonly level = this.req("level-name");
   private readonly shots = this.req("shots");
@@ -5,7 +12,7 @@ export class Hud {
   private readonly status = this.req("status");
   private readonly powerWrap = this.req("power-wrap");
   private readonly powerBar = this.req("power-bar");
-
+  private readonly projectileSelector = this.req("projectile-selector");
   readonly resetButton = this.req("reset-button") as HTMLButtonElement;
 
   setLevel(value: string): void {
@@ -30,12 +37,30 @@ export class Hud {
     this.powerBar.style.width = `${Math.max(0, power) * 100}%`;
   }
 
+  setProjectiles(
+    items: ProjectileHudItem[],
+    selectedId: string,
+    onSelect: (id: string) => void,
+  ): void {
+    this.projectileSelector.replaceChildren();
+
+    for (const item of items) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "projectile-chip";
+      button.dataset.active = String(item.id === selectedId);
+      button.disabled = item.count <= 0;
+      button.innerHTML = `<span>${item.keyHint}</span><strong>${item.label}</strong><em>×${item.count}</em>`;
+      button.addEventListener("click", () => onSelect(item.id));
+      this.projectileSelector.append(button);
+    }
+  }
+
   private req(id: string): HTMLElement {
     const element = document.getElementById(id);
     if (!element) {
       throw new Error(`#${id} was not found`);
     }
-
     return element;
   }
 }
