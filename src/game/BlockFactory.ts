@@ -73,7 +73,12 @@ export class BlockFactory {
     const material = this.materials[materialId] ?? this.materials.wood;
     mesh.material = material;
     mesh.receiveShadows = true;
-    mesh.metadata = { assetId: entity.asset, materialId, tags: entity.tags ?? [] };
+    mesh.metadata = {
+      assetId: entity.asset,
+      materialId,
+      tags: entity.tags ?? [],
+      happyBlocksEntityId: entity.id,
+    };
 
     const visual = this.visuals?.instantiate(
       definition.model,

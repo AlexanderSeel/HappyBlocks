@@ -1,5 +1,6 @@
 export type Vec3Tuple = [number, number, number];
 export type MotionType = "STATIC" | "DYNAMIC";
+export type LevelMode = "throw" | "chainReaction" | "remove" | "protect" | "scoreAttack";
 
 export interface LevelEntity {
   id: string;
@@ -28,12 +29,30 @@ export interface KnockDownObjective {
   required: number;
 }
 
-export type LevelObjective = MoveBelowYObjective | KnockDownObjective;
+export interface RemovedObjective {
+  type: "removed";
+  targetTag: string;
+  required: number;
+}
+
+export interface ProtectObjective {
+  type: "protect";
+  targetTag: string;
+  minY: number;
+  minUpDot?: number;
+  required: number;
+}
+
+export type LevelObjective =
+  | MoveBelowYObjective
+  | KnockDownObjective
+  | RemovedObjective
+  | ProtectObjective;
 
 export interface HappyBlocksLevel {
   id: string;
   name: string;
-  mode: string;
+  mode: LevelMode;
   arena: { platform: string; gravity: Vec3Tuple };
   camera: {
     target: Vec3Tuple;
@@ -44,6 +63,7 @@ export interface HappyBlocksLevel {
     maxRadius?: number;
   };
   inventory: Record<string, number>;
+  actions?: { removes?: number };
   entities: LevelEntity[];
   objectives: LevelObjective[];
   scoring?: {

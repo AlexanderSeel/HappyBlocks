@@ -1,0 +1,21 @@
+{
+  "id":"prototype-004","name":"Precision Pull","mode":"remove",
+  "arena":{"platform":"platform.square","gravity":[0,-9.81,0]},
+  "camera":{"target":[0,1.3,0],"alpha":-1.55,"beta":1.12,"radius":11,"minRadius":7,"maxRadius":16},
+  "inventory":{},
+  "actions":{"removes":3},
+  "entities":[
+    {"id":"leftSupport","asset":"block.cube","material":"ceramic_cyan","position":[-1.15,0.5,0],"motion":"DYNAMIC","tags":["removable","pull-target"]},
+    {"id":"centerSupport","asset":"block.cube","material":"ceramic_amber","position":[0,0.5,0],"motion":"DYNAMIC","tags":["removable","decoy"]},
+    {"id":"rightSupport","asset":"block.cube","material":"ceramic_cyan","position":[1.15,0.5,0],"motion":"DYNAMIC","tags":["removable","pull-target"]},
+    {"id":"beam","asset":"block.plank","material":"wood","position":[0,1.18,0],"motion":"DYNAMIC"},
+    {"id":"leftWeight","asset":"block.cube","material":"stone","position":[-1.05,1.75,0],"motion":"DYNAMIC"},
+    {"id":"rightWeight","asset":"block.cube","material":"stone","position":[1.05,1.75,0],"motion":"DYNAMIC"},
+    {"id":"core","asset":"goal.energyCore","material":"energy","position":[0,1.88,0],"motion":"DYNAMIC","tags":["protected"]}
+  ],
+  "objectives":[
+    {"type":"removed","targetTag":"pull-target","required":2},
+    {"type":"protect","targetTag":"protected","minY":1.15,"required":1}
+  ],
+  "scoring":{"base":1450,"projectilePenalty":170,"timePenaltyPerSecond":1,"starThresholds":[700,1050,1350]}
+}

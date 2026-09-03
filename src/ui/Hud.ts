@@ -7,6 +7,7 @@ export interface ProjectileHudItem {
 
 export class Hud {
   private readonly level = this.req("level-name");
+  private readonly resourceLabel = this.req("resource-label");
   private readonly shots = this.req("shots");
   private readonly score = this.req("score");
   private readonly combo = this.req("combo");
@@ -15,6 +16,7 @@ export class Hud {
   private readonly powerBar = this.req("power-bar");
   private readonly projectileSelector = this.req("projectile-selector");
   private readonly resultPanel = this.req("result-panel");
+  private readonly resultTitle = this.req("result-title");
   private readonly resultStars = this.req("result-stars");
   private readonly resultScore = this.req("result-score");
   readonly resetButton = this.req("reset-button") as HTMLButtonElement;
@@ -23,6 +25,10 @@ export class Hud {
 
   setLevel(value: string): void {
     this.level.textContent = value;
+  }
+
+  setResourceLabel(value: string): void {
+    this.resourceLabel.textContent = value;
   }
 
   setShots(value: number): void {
@@ -37,7 +43,10 @@ export class Hud {
     this.combo.textContent = value > 1 ? `×${value}` : "—";
   }
 
-  setStatus(text: string, state: "normal" | "win" = "normal"): void {
+  setStatus(
+    text: string,
+    state: "normal" | "win" | "fail" = "normal",
+  ): void {
     this.status.textContent = text;
     this.status.dataset.state = state;
   }
@@ -67,11 +76,20 @@ export class Hud {
   }
 
   showResult(score: number, stars: number, hasNext: boolean): void {
+    this.resultTitle.textContent = "LEVEL COMPLETE";
     this.resultScore.textContent = `${Math.round(score).toLocaleString()} POINTS`;
     this.resultStars.textContent = [0, 1, 2]
       .map((index) => (index < stars ? "★" : "☆"))
       .join(" ");
     this.resultNextButton.hidden = !hasNext;
+    this.resultPanel.hidden = false;
+  }
+
+  showFailure(message: string): void {
+    this.resultTitle.textContent = "LEVEL FAILED";
+    this.resultStars.textContent = "✕";
+    this.resultScore.textContent = message;
+    this.resultNextButton.hidden = true;
     this.resultPanel.hidden = false;
   }
 

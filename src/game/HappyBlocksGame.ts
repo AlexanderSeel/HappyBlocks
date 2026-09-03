@@ -19,12 +19,20 @@ import { ArcRotateCameraPointersInput } from "@babylonjs/core/Cameras/Inputs/arc
 import { AudioFx } from "./AudioFx";
 import { ASSETS } from "./AssetDefinitions";
 import { BlockFactory, type RuntimeEntity } from "./BlockFactory";
+import { PhysicsDebugOverlay } from "./debug/PhysicsDebugOverlay";
 import { spawnImpactBurst } from "./effects/ImpactBurst";
 import { spawnPulseWave } from "./effects/PulseWave";
+import { RemoveController } from "./input/RemoveController";
 import { ThrowController } from "./input/ThrowController";
 import { loadLevel as fetchLevel } from "./levels/loadLevel";
-import type { HappyBlocksLevel, LevelEntity, LevelObjective } from "./levels/types";
+import type {
+  HappyBlocksLevel,
+  LevelEntity,
+  LevelObjective,
+  ProtectObjective,
+} from "./levels/types";
 import { initPhysics } from "./physics/initPhysics";
+import { ProgressStore } from "./progression/ProgressStore";
 import {
   createMaterialLibrary,
   type MaterialLibrary,
@@ -48,6 +56,8 @@ export class HappyBlocksGame {
   private readonly engine: Engine;
   private readonly hud = new Hud();
   private readonly audio = new AudioFx();
+  private readonly progress = new ProgressStore();
+  private readonly debug: PhysicsDebugOverlay;
 
   private scene: Scene | null = null;
   private materials: MaterialLibrary | null = null;
@@ -59,14 +69,18 @@ export class HappyBlocksGame {
   private entities: RuntimeEntity[] = [];
   private platform: { mesh: Mesh; aggregate: PhysicsAggregate } | null = null;
   private throwController: ThrowController | null = null;
+  private removeController: RemoveController | null = null;
   private inventory: Record<string, number> = {};
   private selectedProjectile = "projectile.ball";
+  private removeActionsRemaining = 0;
+  private readonly removedTagCounts = new Map<string, number>();
   private shotsUsed = 0;
   private impactBonus = 0;
   private comboCount = 0;
   private lastScoringImpactAt = 0;
   private startedAt = 0;
   private completed = false;
+  private failed = false;
   private renderLoopStarted = false;
   private settling = false;
   private settledSince = 0;
@@ -78,6 +92,7 @@ export class HappyBlocksGame {
       preserveDrawingBuffer: false,
       stencil: true,
     });
+    this.debug = new PhysicsDebugOverlay(this.engine);
 
     window.addEventListener("resize", this.resize);
     window.addEventListener("keydown", this.keydown);
@@ -88,6 +103,7 @@ export class HappyBlocksGame {
 
   setLevelSequence(urls: string[]): void {
     this.levelSequence = [...urls];
+    this.syncLevelButtons();
   }
 
   async start(levelUrl: string): Promise<void> {
@@ -109,6 +125,11 @@ export class HappyBlocksGame {
   }
 
   async loadLevel(levelUrl: string): Promise<void> {
+    if (!this.progress.isUnlocked(this.levelSequence, levelUrl)) {
+      this.hud.setStatus("Level locked · complete the previous challenge first.");
+      return;
+    }
+
     const level = await fetchLevel(levelUrl);
     this.currentLevelUrl = levelUrl;
     this.level = level;
@@ -118,16 +139,17 @@ export class HappyBlocksGame {
   private async loadNextLevel(): Promise<void> {
     const index = this.levelSequence.indexOf(this.currentLevelUrl);
     const nextUrl = index >= 0 ? this.levelSequence[index + 1] : undefined;
-    if (!nextUrl) {
+    if (!nextUrl || !this.progress.isUnlocked(this.levelSequence, nextUrl)) {
       return;
     }
     await this.loadLevel(nextUrl);
-    this.syncLevelButtons();
   }
 
   private async buildScene(level: HappyBlocksLevel): Promise<void> {
     this.throwController?.dispose();
     this.throwController = null;
+    this.removeController?.dispose();
+    this.removeController = null;
     this.visuals?.dispose();
     this.visuals = null;
     this.scene?.dispose();
@@ -194,38 +216,68 @@ export class HappyBlocksGame {
 
     this.inventory = { ...level.inventory };
     this.selectedProjectile = this.projectileIds()[0] ?? "projectile.ball";
+    this.removeActionsRemaining = level.actions?.removes ?? 0;
+    this.removedTagCounts.clear();
     this.shotsUsed = 0;
     this.impactBonus = 0;
     this.comboCount = 0;
     this.lastScoringImpactAt = 0;
     this.completed = false;
+    this.failed = false;
     this.startedAt = performance.now();
     this.settling = false;
     this.settledSince = 0;
     this.lastThrowAt = 0;
     this.pendingBreaks.clear();
 
-    this.throwController = new ThrowController(
-      scene,
-      this.canvas,
-      this.materials,
-      {
-        canThrow: () =>
-          !this.completed && (this.inventory[this.selectedProjectile] ?? 0) > 0,
-        getProjectileAsset: () => this.selectedProjectile,
-        onAim: (power) => this.hud.setPower(power),
-        onThrow: (assetId) => this.onThrow(assetId),
-        onImpact: (assetId, impulse, point) =>
-          this.onProjectileImpact(assetId, impulse, point),
-      },
-      this.visuals,
-    );
+    if (level.mode === "remove") {
+      this.removeController = new RemoveController(
+        scene,
+        this.canvas,
+        () => this.entities,
+        {
+          canRemove: (entity) =>
+            !this.completed &&
+            !this.failed &&
+            this.removeActionsRemaining > 0 &&
+            entity.tags.includes("removable"),
+          onRemove: (entity, point) => this.onRemoveEntity(entity, point),
+        },
+      );
+      this.hud.setResourceLabel("PULLS");
+      this.hud.setProjectiles([], "", () => undefined);
+      this.hud.setShots(this.removeActionsRemaining);
+      this.hud.setStatus("Click a highlighted removable block to pull it out.");
+    } else {
+      this.throwController = new ThrowController(
+        scene,
+        this.canvas,
+        this.materials,
+        {
+          canThrow: () =>
+            !this.completed &&
+            !this.failed &&
+            (this.inventory[this.selectedProjectile] ?? 0) > 0,
+          getProjectileAsset: () => this.selectedProjectile,
+          onAim: (power) => this.hud.setPower(power),
+          onThrow: (assetId) => this.onThrow(assetId),
+          onImpact: (assetId, impulse, point) =>
+            this.onProjectileImpact(assetId, impulse, point),
+        },
+        this.visuals,
+      );
+      this.hud.setResourceLabel("SHOTS");
+      this.refreshProjectileHud();
+      this.hud.setStatus(
+        level.mode === "protect"
+          ? "Knock down the threats · keep the energy core safe."
+          : "Drag backward, aim, release.",
+      );
+    }
 
     this.hud.setLevel(level.name);
     this.hud.setCombo(0);
-    this.refreshProjectileHud();
     this.hud.setScore(this.score());
-    this.hud.setStatus("Drag backward, aim, release.");
     this.syncLevelButtons();
   }
 
@@ -260,7 +312,10 @@ export class HappyBlocksGame {
     );
     this.platform = { mesh, aggregate };
 
-    const ringDiameter = definition.kind === "cylinder" ? definition.radius! * 1.88 : Math.min(width, depth) * 1.27;
+    const ringDiameter =
+      definition.kind === "cylinder"
+        ? definition.radius! * 1.88
+        : Math.min(width, depth) * 1.27;
     const ring = MeshBuilder.CreateTorus(
       "arena-ring",
       { diameter: ringDiameter, thickness: 0.04, tessellation: 80 },
@@ -315,7 +370,6 @@ export class HappyBlocksGame {
 
     const pending = [...this.pendingBreaks.values()];
     this.pendingBreaks.clear();
-
     for (const request of pending) {
       this.breakEntity(request);
     }
@@ -423,9 +477,7 @@ export class HappyBlocksGame {
     this.comboCount = 0;
     this.lastScoringImpactAt = 0;
     this.hud.setCombo(0);
-    this.settling = true;
-    this.settledSince = 0;
-    this.lastThrowAt = performance.now();
+    this.beginSettling();
 
     if ((this.inventory[this.selectedProjectile] ?? 0) <= 0) {
       const next = this.projectileIds().find(
@@ -439,6 +491,45 @@ export class HappyBlocksGame {
     this.refreshProjectileHud();
     this.hud.setStatus("Impact incoming…");
     this.audio.play("throw");
+  }
+
+  private onRemoveEntity(entity: RuntimeEntity, point: Vector3): void {
+    if (
+      this.completed ||
+      this.failed ||
+      this.removeActionsRemaining <= 0 ||
+      !entity.tags.includes("removable")
+    ) {
+      return;
+    }
+
+    this.removeActionsRemaining -= 1;
+    this.shotsUsed += 1;
+    for (const tag of entity.tags) {
+      this.removedTagCounts.set(tag, (this.removedTagCounts.get(tag) ?? 0) + 1);
+    }
+
+    if (this.scene) {
+      spawnImpactBurst(this.scene, point, 5, "energy");
+    }
+    entity.disposeVisual();
+    entity.aggregate.dispose();
+    entity.mesh.dispose();
+    this.entities = this.entities.filter((candidate) => candidate !== entity);
+    this.hud.setShots(this.removeActionsRemaining);
+    this.hud.setStatus(
+      this.removeActionsRemaining > 0
+        ? "Block pulled · let the structure settle."
+        : "Last pull used · let the structure settle.",
+    );
+    this.audio.play("impactLight", 0.8);
+    this.beginSettling();
+  }
+
+  private beginSettling(): void {
+    this.settling = true;
+    this.settledSince = 0;
+    this.lastThrowAt = performance.now();
   }
 
   private onProjectileImpact(assetId: string, impulse: number, point: Vector3): void {
@@ -514,12 +605,23 @@ export class HappyBlocksGame {
   }
 
   private update(): void {
-    if (!this.level || this.completed) {
+    if (!this.level) {
       return;
     }
 
     this.flushBreaks();
+    this.updateDebug();
+    if (this.completed || this.failed) {
+      return;
+    }
+
     this.hud.setScore(this.score());
+
+    const failedProtection = this.failedProtectObjective();
+    if (failedProtection) {
+      this.failLevel(failedProtection);
+      return;
+    }
 
     if (this.level.objectives.every((objective) => this.objective(objective))) {
       this.completeLevel();
@@ -530,9 +632,34 @@ export class HappyBlocksGame {
       return;
     }
 
-    if (!this.settling && this.totalShotsRemaining() <= 0) {
-      this.hud.setStatus("No shots left — reset and try another angle.");
+    if (!this.settling && this.totalActionsRemaining() <= 0) {
+      this.hud.setStatus(
+        this.level.mode === "remove"
+          ? "No pulls left — reset and try a different structure path."
+          : "No shots left — reset and try another angle.",
+      );
     }
+  }
+
+  private updateDebug(): void {
+    if (!this.level) {
+      return;
+    }
+    const entityBodies = this.entities
+      .filter((entity) => entity.dynamic)
+      .map((entity) => entity.aggregate.body);
+    const projectileBodies = this.throwController?.getBodies() ?? [];
+    this.debug.update({
+      level: this.level.name,
+      mode: this.level.mode,
+      bodies: [...entityBodies, ...projectileBodies],
+      entities: this.entities.length,
+      projectiles: projectileBodies.length,
+      pendingBreaks: this.pendingBreaks.size,
+      actionsRemaining: this.totalActionsRemaining(),
+      selectedProjectile:
+        this.level.mode === "remove" ? "block pull" : this.selectedProjectile,
+    });
   }
 
   private completeLevel(): void {
@@ -543,14 +670,34 @@ export class HappyBlocksGame {
     this.completed = true;
     const score = this.score();
     const stars = this.starsForScore(score);
+    this.progress.recordResult(this.currentLevelUrl, score, stars);
+    this.syncLevelButtons();
     const currentIndex = this.levelSequence.indexOf(this.currentLevelUrl);
-    const hasNext = currentIndex >= 0 && currentIndex < this.levelSequence.length - 1;
+    const nextUrl = currentIndex >= 0 ? this.levelSequence[currentIndex + 1] : undefined;
+    const hasNext = Boolean(
+      nextUrl && this.progress.isUnlocked(this.levelSequence, nextUrl),
+    );
     this.hud.setStatus(
       `Structure solved · ${score.toLocaleString()} points`,
       "win",
     );
     this.hud.showResult(score, stars, hasNext);
     this.audio.play("goal");
+  }
+
+  private failLevel(objective: ProtectObjective): void {
+    this.failed = true;
+    const message = `Protected '${objective.targetTag}' was lost.`;
+    this.hud.setStatus(`${message} · Retry the level.`, "fail");
+    this.hud.showFailure(message);
+    this.audio.play("impactHeavy", 0.65);
+  }
+
+  private failedProtectObjective(): ProtectObjective | undefined {
+    return this.level?.objectives.find(
+      (objective): objective is ProtectObjective =>
+        objective.type === "protect" && !this.objective(objective),
+    );
   }
 
   private starsForScore(score: number): number {
@@ -597,14 +744,22 @@ export class HappyBlocksGame {
     this.settling = false;
     this.settledSince = 0;
     this.hud.setStatus(
-      this.totalShotsRemaining() > 0
-        ? "World settled · line up the next shot."
-        : "World settled · no shots left.",
+      this.totalActionsRemaining() > 0
+        ? this.level?.mode === "remove"
+          ? "World settled · choose the next block to pull."
+          : "World settled · line up the next shot."
+        : this.level?.mode === "remove"
+          ? "World settled · no pulls left."
+          : "World settled · no shots left.",
     );
     return true;
   }
 
   private objective(objective: LevelObjective): boolean {
+    if (objective.type === "removed") {
+      return (this.removedTagCounts.get(objective.targetTag) ?? 0) >= objective.required;
+    }
+
     const targets = this.entities.filter((entity) =>
       entity.tags.includes(objective.targetTag),
     );
@@ -614,6 +769,24 @@ export class HappyBlocksGame {
         targets.filter((entity) => entity.mesh.position.y <= objective.y).length >=
         objective.required
       );
+    }
+
+    if (objective.type === "protect") {
+      const up = Vector3.Up();
+      const safe = targets.filter((entity) => {
+        if (entity.mesh.position.y < objective.minY) {
+          return false;
+        }
+        if (objective.minUpDot === undefined) {
+          return true;
+        }
+        const worldUp = Vector3.TransformNormal(
+          up,
+          entity.mesh.getWorldMatrix(),
+        ).normalize();
+        return Vector3.Dot(worldUp, up) >= objective.minUpDot;
+      });
+      return safe.length >= objective.required;
     }
 
     const up = Vector3.Up();
@@ -661,6 +834,12 @@ export class HappyBlocksGame {
     );
   }
 
+  private totalActionsRemaining(): number {
+    return this.level?.mode === "remove"
+      ? this.removeActionsRemaining
+      : this.totalShotsRemaining();
+  }
+
   private score(): number {
     if (!this.level) {
       return 0;
@@ -683,7 +862,29 @@ export class HappyBlocksGame {
     for (const button of document.querySelectorAll<HTMLButtonElement>(
       "[data-level-url]",
     )) {
-      button.dataset.active = String(button.dataset.levelUrl === this.currentLevelUrl);
+      const levelUrl = button.dataset.levelUrl;
+      if (!levelUrl) {
+        continue;
+      }
+      button.dataset.baseLabel ??= button.textContent?.trim() ?? "Level";
+      const unlocked = this.progress.isUnlocked(this.levelSequence, levelUrl);
+      const progress = this.progress.get(levelUrl);
+      button.disabled = !unlocked;
+      button.dataset.locked = String(!unlocked);
+      button.dataset.active = String(levelUrl === this.currentLevelUrl);
+      const stars = progress
+        ? `${"★".repeat(progress.stars)}${"☆".repeat(3 - progress.stars)}`
+        : "";
+      button.textContent = !unlocked
+        ? `${button.dataset.baseLabel} · LOCKED`
+        : stars
+          ? `${button.dataset.baseLabel} · ${stars}`
+          : button.dataset.baseLabel;
+      button.title = progress
+        ? `Best ${progress.bestScore.toLocaleString()} · ${progress.stars}/3 stars`
+        : unlocked
+          ? "Available"
+          : "Complete the previous level to unlock";
     }
   }
 
@@ -697,8 +898,18 @@ export class HappyBlocksGame {
   private readonly resize = (): void => this.engine.resize();
 
   private readonly keydown = (event: KeyboardEvent): void => {
+    if (event.key === "F3") {
+      event.preventDefault();
+      this.debug.toggle();
+      return;
+    }
+
     if (event.key.toLowerCase() === "r") {
       void this.reset();
+      return;
+    }
+
+    if (this.level?.mode === "remove") {
       return;
     }
 
@@ -721,8 +932,10 @@ export class HappyBlocksGame {
     window.removeEventListener("resize", this.resize);
     window.removeEventListener("keydown", this.keydown);
     this.throwController?.dispose();
+    this.removeController?.dispose();
     this.visuals?.dispose();
     this.scene?.dispose();
+    this.debug.dispose();
     this.audio.dispose();
     this.engine.dispose();
   }

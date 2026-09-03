@@ -11,6 +11,8 @@ const levelUrls = [
   "/levels/level_001_first_collapse.json",
   "/levels/level_002_crossfire.json",
   "/levels/level_003_ricochet_lab.json",
+  "/levels/level_004_precision_pull.json",
+  "/levels/level_005_guardian.json",
 ];
 const game = new HappyBlocksGame(canvas);
 game.setLevelSequence(levelUrls);
@@ -22,7 +24,7 @@ const levelButtons = [
 for (const button of levelButtons) {
   button.addEventListener("click", () => {
     const levelUrl = button.dataset.levelUrl;
-    if (!levelUrl) {
+    if (!levelUrl || button.disabled) {
       return;
     }
     void game.loadLevel(levelUrl);

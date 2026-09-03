@@ -5,11 +5,23 @@
   "type":"object",
   "required":["id","name","mode","arena","camera","inventory","entities","objectives"],
   "properties":{
-    "id":{"type":"string"},"name":{"type":"string"},"mode":{"type":"string"},
-    "arena":{"type":"object","required":["platform","gravity"]},
-    "camera":{"type":"object","required":["target","alpha","beta","radius"]},
+    "id":{"type":"string","minLength":1},
+    "name":{"type":"string","minLength":1},
+    "mode":{"enum":["throw","chainReaction","remove","protect","scoreAttack"]},
+    "arena":{"type":"object","required":["platform","gravity"],"properties":{"platform":{"type":"string"},"gravity":{"$ref":"#/$defs/vec3"}}},
+    "camera":{"type":"object","required":["target","alpha","beta","radius"],"properties":{"target":{"$ref":"#/$defs/vec3"},"alpha":{"type":"number"},"beta":{"type":"number"},"radius":{"type":"number","exclusiveMinimum":0},"minRadius":{"type":"number"},"maxRadius":{"type":"number"}}},
     "inventory":{"type":"object","additionalProperties":{"type":"integer","minimum":0}},
-    "entities":{"type":"array","items":{"type":"object","required":["id","asset","position","motion"]}},
-    "objectives":{"type":"array","minItems":1}
+    "actions":{"type":"object","properties":{"removes":{"type":"integer","minimum":0}},"additionalProperties":false},
+    "entities":{"type":"array","items":{"$ref":"#/$defs/entity"}},
+    "objectives":{"type":"array","minItems":1,"items":{"oneOf":[{"$ref":"#/$defs/moveBelowY"},{"$ref":"#/$defs/knockDown"},{"$ref":"#/$defs/removed"},{"$ref":"#/$defs/protect"}]}}
+  },
+  "$defs":{
+    "vec3":{"type":"array","prefixItems":[{"type":"number"},{"type":"number"},{"type":"number"}],"minItems":3,"maxItems":3},
+    "entity":{"type":"object","required":["id","asset","position","motion"],"properties":{"id":{"type":"string"},"asset":{"type":"string"},"material":{"type":"string"},"position":{"$ref":"#/$defs/vec3"},"rotation":{"$ref":"#/$defs/vec3"},"scale":{"$ref":"#/$defs/vec3"},"motion":{"enum":["STATIC","DYNAMIC"]},"tags":{"type":"array","items":{"type":"string"}},"massScale":{"type":"number","exclusiveMinimum":0},"breakThreshold":{"type":"number","minimum":0}}},
+    "objectiveBase":{"type":"object","required":["type","targetTag","required"]},
+    "moveBelowY":{"allOf":[{"$ref":"#/$defs/objectiveBase"},{"properties":{"type":{"const":"moveBelowY"},"targetTag":{"type":"string"},"required":{"type":"integer","minimum":1},"y":{"type":"number"}},"required":["y"]}]},
+    "knockDown":{"allOf":[{"$ref":"#/$defs/objectiveBase"},{"properties":{"type":{"const":"knockDown"},"targetTag":{"type":"string"},"required":{"type":"integer","minimum":1},"maxUpDot":{"type":"number","minimum":-1,"maximum":1}},"required":["maxUpDot"]}]},
+    "removed":{"allOf":[{"$ref":"#/$defs/objectiveBase"},{"properties":{"type":{"const":"removed"},"targetTag":{"type":"string"},"required":{"type":"integer","minimum":1}}}]},
+    "protect":{"allOf":[{"$ref":"#/$defs/objectiveBase"},{"properties":{"type":{"const":"protect"},"targetTag":{"type":"string"},"required":{"type":"integer","minimum":1},"minY":{"type":"number"},"minUpDot":{"type":"number","minimum":-1,"maximum":1}},"required":["minY"]}]}
   }
 }

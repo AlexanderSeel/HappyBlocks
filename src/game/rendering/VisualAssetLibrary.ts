@@ -74,7 +74,11 @@ export class VisualAssetLibrary {
         }
 
         node.material = material;
-        node.isPickable = false;
+        node.isPickable = true;
+        node.metadata = {
+          ...(node.metadata ?? {}),
+          happyBlocksEntityId: instanceName,
+        };
         node.receiveShadows = true;
         meshes.push(node);
       }

@@ -1,0 +1,21 @@
+{
+  "id":"prototype-005","name":"Guardian","mode":"protect",
+  "arena":{"platform":"platform.round","gravity":[0,-9.81,0]},
+  "camera":{"target":[0,1.6,0.7],"alpha":-1.48,"beta":1.08,"radius":13.5,"minRadius":8,"maxRadius":19},
+  "inventory":{"projectile.ball":2,"projectile.heavy":1,"projectile.pulse":1},
+  "entities":[
+    {"id":"guardL","asset":"block.pillar","material":"stone","position":[-0.72,1.05,0.4],"motion":"DYNAMIC"},
+    {"id":"guardR","asset":"block.pillar","material":"stone","position":[0.72,1.05,0.4],"motion":"DYNAMIC"},
+    {"id":"guardBeam","asset":"block.slab","material":"wood","position":[0,2.25,0.4],"motion":"DYNAMIC"},
+    {"id":"core","asset":"goal.energyCore","material":"energy","position":[0,2.9,0.4],"motion":"DYNAMIC","tags":["protected"]},
+    {"id":"threatL","asset":"target.totem","material":"ceramic_amber","position":[-2.35,0.7,1.35],"motion":"DYNAMIC","tags":["threat"]},
+    {"id":"threatR","asset":"target.totem","material":"ceramic_violet","position":[2.35,0.7,1.35],"motion":"DYNAMIC","tags":["threat"]},
+    {"id":"dividerL","asset":"block.plank","material":"metal","position":[-1.55,1.25,0.85],"rotation":[0,0,0.55],"motion":"DYNAMIC"},
+    {"id":"dividerR","asset":"block.plank","material":"metal","position":[1.55,1.25,0.85],"rotation":[0,0,-0.55],"motion":"DYNAMIC"}
+  ],
+  "objectives":[
+    {"type":"knockDown","targetTag":"threat","maxUpDot":0.45,"required":2},
+    {"type":"protect","targetTag":"protected","minY":2.05,"required":1}
+  ],
+  "scoring":{"base":1900,"projectilePenalty":210,"impactComboWindowMs":900,"comboMultiplier":1.2,"starThresholds":[950,1400,1800]}
+}

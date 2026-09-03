@@ -1,21 +1,27 @@
 # HappyBlocks
 
-HappyBlocks is an original browser-first 3D physics puzzle game built with Babylon.js and Havok Physics V2. The core loop is: inspect a structure, aim a projectile, throw, watch the physical chain reaction, score the result, and retry instantly.
+HappyBlocks is an original browser-first 3D physics puzzle game built with Babylon.js and Havok Physics V2. The core loop is to inspect a structure, choose the right interaction, trigger a physical chain reaction, and optimize the result.
 
-## Current vertical slice
+## Current playable build
 
 - Babylon.js 9.23.0 + Havok 1.3.14
 - Vite + strict TypeScript
-- physics-backed stacked blocks
-- drag/release projectile throwing
-- ballistic trajectory preview
-- limited projectile inventory
-- objective detection and live score
-- instant reset
-- ArcRotate camera with throw input separated from orbit
+- glTF visuals separated from primitive Havok collision proxies
+- drag/release throwing with ballistic trajectory preview
+- standard, heavy and radial-pulse projectiles
+- authored breakable columns and hinged spinner mechanisms
+- material-specific friction/restitution including rubber bumpers
+- collision-driven procedural audio, score combos and impact VFX
+- settled-world detection
+- Throw, Chain Reaction, Remove and Protect gameplay modes
+- limited block-pull interaction for Remove levels
+- continuous protected-object failure conditions
+- three-star results, retry and next-level flow
+- sequential level unlocks with best score/stars persisted in localStorage
+- F3 physics/performance debug overlay
+- five authored prototype levels
+- JSON level schema
 - original low-poly glTF prototype model pack
-- SVG UI/arena assets and procedural WebAudio presets
-- JSON level format and two prototype levels
 
 ## Run
 
@@ -37,8 +43,11 @@ npm run build
 |---|---|
 | Left mouse / touch drag | Aim and set throw power |
 | Release | Throw |
+| Click/tap removable block | Pull block in Remove mode |
 | Right mouse drag | Orbit camera |
 | Mouse wheel | Zoom |
+| 1 / 2 / 3 | Select projectile |
 | R | Reset |
+| F3 | Physics/performance debug overlay |
 
 See `PLAN.md` for architecture and roadmap.
