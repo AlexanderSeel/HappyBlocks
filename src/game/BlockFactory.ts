@@ -11,6 +11,7 @@ import {
 import { ASSETS } from "./AssetDefinitions";
 import { bindEditorSelection } from "./editor/editorEvents";
 import type { LevelEntity } from "./levels/types";
+import { stageInitialBody } from "./physics/InitialPhysicsStabilizer";
 import { getPhysicsSurface } from "./physics/PhysicsMaterials";
 import { createDetailedVisual } from "./rendering/DetailedVisualFactory";
 import type { MaterialLibrary } from "./rendering/materials";
@@ -136,8 +137,9 @@ export class BlockFactory {
     if (!dynamic) {
       aggregate.body.setMotionType(PhysicsMotionType.STATIC);
     } else {
-      aggregate.body.setLinearDamping(0.015);
-      aggregate.body.setAngularDamping(0.025);
+      aggregate.body.setLinearDamping(0.025);
+      aggregate.body.setAngularDamping(0.04);
+      stageInitialBody(this.scene, aggregate.body);
     }
 
     return {
